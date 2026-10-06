@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { validateOpenings } from "../src/validation/OpeningValidator.js";
+const floor = { boundaries: [{ id: "a-b0", roomId: "a", start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, length: 4 }, { id: "a-b1", roomId: "a", start: { x: 4, y: 0 }, end: { x: 4, y: 4 }, length: 4 }], sharedBoundaries: [], wallSegments: [{ boundaryId: "a-b0", classification: "external", localStart: 0, localEnd: 4 }, { boundaryId: "a-b1", classification: "shared", localStart: 0, localEnd: 4 }] };
+describe("validateOpenings", () => {
+    it("warns for a window on a shared wall", () => { const x = validateOpenings(floor, [], [{ id: "w", type: "window", roomId: "a", boundaryId: "a-b1", offset: 1 }]); assert.equal(x[0]?.code, "WINDOW_ON_SHARED_WALL"); assert.equal(x[0]?.severity, "warning"); });
+    it("reports window-door overlap", () => { const x = validateOpenings(floor, [{ id: "d", type: "external-door", roomA: "a", boundaryA: "a-b0", offset: 1.5, geometry: { width: 1 } }], [{ id: "w", type: "window", roomId: "a", boundaryId: "a-b0", offset: 1, geometry: { width: 1 } }]); assert.ok(x.some(i => i.code === "EXTERNAL_DOOR_WINDOW_OVERLAP")); });
+    it("reports window-window overlap", () => { const x = validateOpenings(floor, [], [{ id: "w1", type: "window", roomId: "a", boundaryId: "a-b0", offset: 1, geometry: { width: 1 } }, { id: "w2", type: "window", roomId: "a", boundaryId: "a-b0", offset: 1.5, geometry: { width: 1 } }]); assert.ok(x.some(i => i.code === "WINDOW_WINDOW_OVERLAP")); });
+    it("accepts separated openings", () => { const x = validateOpenings(floor, [{ id: "d", type: "external-door", roomA: "a", boundaryA: "a-b0", offset: 2.5, geometry: { width: 1 } }], [{ id: "w", type: "window", roomId: "a", boundaryId: "a-b0", offset: .5, geometry: { width: 1 } }]); assert.equal(x.length, 0); });
+    it("reports a missing boundary", () => { const x = validateOpenings(floor, [], [{ id: "w", type: "window", roomId: "a", boundaryId: "missing", offset: 0 }]); assert.equal(x[0]?.code, "WINDOW_BOUNDARY_NOT_FOUND"); });
+});

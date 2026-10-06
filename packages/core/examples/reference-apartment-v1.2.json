@@ -163,16 +163,13 @@
         "openings": [
 
           {"id":"living-window-1","type":"window","roomId":"living","boundaryId":"living-b0","offset":1.0},
-          {"id":"living-window-2","type":"window","roomId":"living","boundaryId":"living-b2","offset":1.5},
 
           {"id":"dining-window-1","type":"window","roomId":"dining","boundaryId":"dining-b0","offset":1.0},
-          {"id":"dining-window-2","type":"window","roomId":"dining","boundaryId":"dining-b2","offset":1.5},
 
           {"id":"kitchen-window-1","type":"window","roomId":"kitchen","boundaryId":"kitchen-b3","offset":1.0},
           {"id":"kitchen-window-2","type":"window","roomId":"kitchen","boundaryId":"kitchen-b2","offset":2.0},
 
           {"id":"bedroom-window-1","type":"window","roomId":"bedroom","boundaryId":"bedroom-b1","offset":1.0},
-          {"id":"bedroom-window-2","type":"window","roomId":"bedroom","boundaryId":"bedroom-b3","offset":1.0},
 
           {"id":"bathroom-window","type":"window","roomId":"bathroom","boundaryId":"bathroom-b1","offset":1.0}
 
