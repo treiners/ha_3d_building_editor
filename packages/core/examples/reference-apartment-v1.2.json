@@ -109,7 +109,7 @@
             "roomB": "kitchen",
             "boundaryA": "dining-b2",
             "boundaryB": "kitchen-b0",
-            "offset": 1.5,
+            "offset": 3.1,
             "geometry": {
               "width": 0.82,
               "height": 2.04,

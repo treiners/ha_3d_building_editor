@@ -1,0 +1,7 @@
+<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 304"><title>Test Floor</title><style>.wall-external{stroke:black;stroke-width:6}.wall-shared{stroke:blue;stroke-width:4}.room{fill:#eef3f8}</style><polygon class="room" points="32,32 352,32 352,272 32,272" /><text class="room-label" x="32" y="32">Living Room</text><line class="wall wall-external" x1="32" y1="32" x2="352" y2="32" />
+<line class="wall wall-external" x1="352" y1="32" x2="352" y2="272" />
+<line class="wall wall-external" x1="352" y1="272" x2="32" y2="272" />
+<line class="wall wall-external" x1="32" y1="272" x2="32" y2="32" /><text class="boundary-label">living-b0</text>
+<text class="boundary-label">living-b1</text>
+<text class="boundary-label">living-b2</text>
+<text class="boundary-label">living-b3</text></svg>
