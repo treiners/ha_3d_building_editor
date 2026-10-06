@@ -1,0 +1,183 @@
+{
+  "schemaVersion": "1.2",
+  "building": {
+    "id": "apartment01",
+    "name": "Reference Apartment",
+
+    "floors": [
+      {
+        "id": "ground",
+        "name": "Ground Floor",
+        "elevation": 0,
+
+        "rooms": [
+
+          {
+            "id": "living",
+            "name": "Living Room",
+            "type": "living-room",
+            "geometry": {
+              "shape": [[0,0],[4,0],[4,4],[0,4]]
+            },
+            "boundaries": [
+              {"id":"living-b0","edgeIndex":0},
+              {"id":"living-b1","edgeIndex":1},
+              {"id":"living-b2","edgeIndex":2},
+              {"id":"living-b3","edgeIndex":3}
+            ]
+          },
+
+          {
+            "id": "dining",
+            "name": "Dining Room",
+            "type": "dining-room",
+            "geometry": {
+              "shape": [[4,0],[8,0],[8,4],[4,4]]
+            },
+            "boundaries": [
+              {"id":"dining-b0","edgeIndex":0},
+              {"id":"dining-b1","edgeIndex":1},
+              {"id":"dining-b2","edgeIndex":2},
+              {"id":"dining-b3","edgeIndex":3}
+            ]
+          },
+
+          {
+            "id": "kitchen",
+            "name": "Kitchen",
+            "type": "kitchen",
+            "geometry": {
+              "shape": [[0,4],[5,4],[5,7],[0,7]]
+            },
+            "boundaries": [
+              {"id":"kitchen-b0","edgeIndex":0},
+              {"id":"kitchen-b1","edgeIndex":1},
+              {"id":"kitchen-b2","edgeIndex":2},
+              {"id":"kitchen-b3","edgeIndex":3}
+            ]
+          },
+
+          {
+            "id": "bedroom",
+            "name": "Bedroom",
+            "type": "bedroom",
+            "geometry": {
+              "shape": [[5,4],[8,4],[8,7],[5,7]]
+            },
+            "boundaries": [
+              {"id":"bedroom-b0","edgeIndex":0},
+              {"id":"bedroom-b1","edgeIndex":1},
+              {"id":"bedroom-b2","edgeIndex":2},
+              {"id":"bedroom-b3","edgeIndex":3}
+            ]
+          },
+
+          {
+            "id": "bathroom",
+            "name": "Bathroom",
+            "type": "bathroom",
+            "geometry": {
+              "shape": [[5,7],[8,7],[8,9],[5,9]]
+            },
+            "boundaries": [
+              {"id":"bathroom-b0","edgeIndex":0},
+              {"id":"bathroom-b1","edgeIndex":1},
+              {"id":"bathroom-b2","edgeIndex":2},
+              {"id":"bathroom-b3","edgeIndex":3}
+            ]
+          }
+
+        ],
+
+        "connectors": [
+
+          {
+            "id": "living-dining",
+            "type": "open-passage",
+            "roomA": "living",
+            "roomB": "dining",
+            "boundaryA": "living-b1",
+            "boundaryB": "dining-b3",
+            "offset": 0.75,
+            "width": 2.5
+          },
+
+          {
+            "id": "dining-kitchen",
+            "type": "door",
+            "roomA": "dining",
+            "roomB": "kitchen",
+            "boundaryA": "dining-b2",
+            "boundaryB": "kitchen-b0",
+            "offset": 1.5,
+            "geometry": {
+              "width": 0.82,
+              "height": 2.04,
+              "style": "single-hinged"
+            }
+          },
+
+          {
+            "id": "bedroom-bathroom",
+            "type": "door",
+            "roomA": "bedroom",
+            "roomB": "bathroom",
+            "boundaryA": "bedroom-b2",
+            "boundaryB": "bathroom-b0",
+            "offset": 1.2,
+            "geometry": {
+              "width": 0.72,
+              "height": 2.04,
+              "style": "single-hinged"
+            }
+          },
+
+          {
+            "id": "living-outside",
+            "type": "external-door",
+            "roomA": "living",
+            "boundaryA": "living-b3",
+            "offset": 2.0,
+            "geometry": {
+              "width": 0.9,
+              "height": 2.04,
+              "style": "single-hinged"
+            }
+          },
+
+          {
+            "id": "dining-outside",
+            "type": "external-door",
+            "roomA": "dining",
+            "boundaryA": "dining-b1",
+            "offset": 2.0,
+            "geometry": {
+              "width": 0.9,
+              "height": 2.04,
+              "style": "sliding"
+            }
+          }
+
+        ],
+
+        "openings": [
+
+          {"id":"living-window-1","type":"window","roomId":"living","boundaryId":"living-b0","offset":1.0},
+          {"id":"living-window-2","type":"window","roomId":"living","boundaryId":"living-b2","offset":1.5},
+
+          {"id":"dining-window-1","type":"window","roomId":"dining","boundaryId":"dining-b0","offset":1.0},
+          {"id":"dining-window-2","type":"window","roomId":"dining","boundaryId":"dining-b2","offset":1.5},
+
+          {"id":"kitchen-window-1","type":"window","roomId":"kitchen","boundaryId":"kitchen-b3","offset":1.0},
+          {"id":"kitchen-window-2","type":"window","roomId":"kitchen","boundaryId":"kitchen-b2","offset":2.0},
+
+          {"id":"bedroom-window-1","type":"window","roomId":"bedroom","boundaryId":"bedroom-b1","offset":1.0},
+          {"id":"bedroom-window-2","type":"window","roomId":"bedroom","boundaryId":"bedroom-b3","offset":1.0},
+
+          {"id":"bathroom-window","type":"window","roomId":"bathroom","boundaryId":"bathroom-b1","offset":1.0}
+
+        ]
+      }
+    ]
+  }
+}

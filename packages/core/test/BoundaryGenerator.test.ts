@@ -118,6 +118,67 @@ describe("generateBoundaries", () => {
         error.message.includes("zero-length edge"),
     );
   });
+  
+  
+
+  it("supports very small room polygons", () => {
+    const room: Room = {
+        id: "tiny-room",
+        name: "Tiny Room",
+        geometry: {
+            shape: [
+                [0, 0],
+                [0.1, 0],
+                [0.1, 0.1],
+                [0, 0.1]
+            ]
+        }
+    };
+
+    const boundaries = generateBoundaries(room);
+
+    assert.equal(boundaries.length, 4);
+    assert.ok(Math.abs(boundaries[0]!.length - 0.1) < 1e-9);
+    assert.ok(Math.abs(boundaries[1]!.length - 0.1) < 1e-9);	
+    assert.ok(Math.abs(boundaries[2]!.length - 0.1) < 1e-9);
+    assert.ok(Math.abs(boundaries[3]!.length - 0.1) < 1e-9);
+  });
+
+
+  it("supports concave room polygons", () => {
+    const room: Room = {
+        id: "concave-room",
+        name: "Concave Room",
+        geometry: {
+            shape: [
+                [0, 0],
+                [4, 0],
+                [4, 2],
+                [2, 2],
+                [2, 4],
+                [0, 4]
+            ]
+        }
+    };
+
+    const boundaries = generateBoundaries(room);
+
+    assert.equal(boundaries.length, 6);
+
+    assert.equal(boundaries[0]?.id, "concave-room-b0");
+    assert.equal(boundaries[5]?.id, "concave-room-b5");
+
+    assert.deepEqual(boundaries[5]?.start, {
+        x: 0,
+        y: 4
+    });
+
+    assert.deepEqual(boundaries[5]?.end, {
+        x: 0,
+        y: 0
+    });
+  });
+
 
   it("rejects non-finite coordinates", () => {
     const room: Room = {
