@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reference Apartment</title>
+<style>
+body{margin:0;font:14px system-ui,sans-serif;background:#eef2f6;color:#17202a;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:100vh}
+main{padding:20px;overflow:auto}
+aside{background:#fff;border-left:1px solid #d7dde5;padding:20px}
+svg{max-width:100%;height:auto;background:#fff}
+.inspectable{cursor:pointer}
+.selected{filter:drop-shadow(0 0 5px #f59e0b)}
+label{display:block;font-weight:700;margin-top:12px}
+input{width:100%;box-sizing:border-box;padding:7px}
+button{margin-top:12px;padding:8px 10px}
+pre{white-space:pre-wrap;font-size:12px;background:#f7f8fa;padding:10px}
+.hint{color:#667085}
+.error{color:#b42318;background:#fef3f2;padding:10px;border-radius:4px}
+</style>
+</head>
+<body>
+<main><?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 704 784" width="704" height="784" role="img" aria-label="Reference Apartment">
+<title>Reference Apartment</title>
+<style>
+.background{fill:#f5f7fa}
+.room{fill:#eef3f8;stroke:none}
+.wall{fill:none;stroke-linecap:square;stroke-linejoin:miter}
+.wall-external{stroke:#20252b;stroke-width:6}
+.wall-shared{stroke:#2563eb;stroke-width:4}
+.connector{fill:none;stroke-linecap:butt}
+.connector-door{stroke:#16a34a;stroke-width:8}
+.connector-external-door{stroke:#15803d;stroke-width:8}
+.connector-open-passage{stroke:#f97316;stroke-width:8}
+.room-label{font:600 14px system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;fill:#17202a;pointer-events:none}
+.boundary-label{font:9px ui-monospace,monospace;text-anchor:middle;dominant-baseline:middle;fill:#6b7280;paint-order:stroke;stroke:#fff;stroke-width:3px;pointer-events:none}
+.room[data-inspect-type="room"]{pointer-events:all;cursor:pointer}
+.wall[data-inspect-type="wall"]{pointer-events:stroke;cursor:pointer}
+.room[data-inspect-type="room"]:hover{fill:#dbeafe}
+.wall[data-inspect-type="wall"]:hover{filter:drop-shadow(0 0 3px #f59e0b)}
+.architectural-symbol.selected{filter:drop-shadow(0 0 5px #f59e0b)}
+.architectural-symbol:hover{filter:drop-shadow(0 0 4px #f59e0b)}
+.door-symbol{pointer-events:stroke;cursor:pointer}
+.door-leaf{fill:none;stroke:#334155;stroke-width:3;stroke-linecap:round}
+.door-swing{fill:none;stroke:#64748b;stroke-width:1.5;stroke-dasharray:4 3}
+.external-door-symbol .door-leaf{stroke:#166534;stroke-width:4}
+.passage-symbol{fill:none;stroke:#f59e0b;stroke-width:3;stroke-linecap:butt;stroke-dasharray:10 5;pointer-events:stroke;cursor:pointer}
+.window-symbol{pointer-events:stroke;cursor:pointer}
+.window-glazing{fill:none;stroke:#38bdf8;stroke-width:5;stroke-linecap:butt}
+.window-frame{fill:none;stroke:#075985;stroke-width:1.5;stroke-linecap:butt}
+.opening-target{fill:none;stroke:transparent;stroke-width:18;stroke-linecap:butt;cursor:grab;pointer-events:stroke}
+.opening-target:hover{stroke:#f59e0b66}
+.opening-target.selected{stroke:#f59e0baa}
+</style>
+<rect class="background" width="100%" height="100%" />
+<g class="rooms"><polygon class="room" data-room-id="living" data-inspect-type="room" data-inspect-id="living" points="32,32 352,32 352,352 32,352" />
+<polygon class="room" data-room-id="dining" data-inspect-type="room" data-inspect-id="dining" points="352,32 672,32 672,352 352,352" />
+<polygon class="room" data-room-id="kitchen" data-inspect-type="room" data-inspect-id="kitchen" points="32,352 432,352 432,592 32,592" />
+<polygon class="room" data-room-id="bedroom" data-inspect-type="room" data-inspect-id="bedroom" points="432,352 672,352 672,592 432,592" />
+<polygon class="room" data-room-id="bathroom" data-inspect-type="room" data-inspect-id="bathroom" points="432,592 672,592 672,752 432,752" /></g>
+<g class="walls"><line class="wall wall-shared" data-wall-id="wall:bathroom-b0:0:piece0" data-inspect-type="wall" data-inspect-id="wall:bathroom-b0:0:piece0" x1="432" y1="592" x2="518.4" y2="592" />
+<line class="wall wall-shared" data-wall-id="wall:bathroom-b0:0:piece1" data-inspect-type="wall" data-inspect-id="wall:bathroom-b0:0:piece1" x1="576" y1="592" x2="672" y2="592" />
+<line class="wall wall-external" data-wall-id="wall:bathroom-b1:0" data-inspect-type="wall" data-inspect-id="wall:bathroom-b1:0" x1="672" y1="592" x2="672" y2="752" />
+<line class="wall wall-external" data-wall-id="wall:bathroom-b2:0" data-inspect-type="wall" data-inspect-id="wall:bathroom-b2:0" x1="672" y1="752" x2="432" y2="752" />
+<line class="wall wall-external" data-wall-id="wall:bathroom-b3:0" data-inspect-type="wall" data-inspect-id="wall:bathroom-b3:0" x1="432" y1="752" x2="432" y2="592" />
+<line class="wall wall-shared" data-wall-id="wall:bedroom-b0:0" data-inspect-type="wall" data-inspect-id="wall:bedroom-b0:0" x1="432" y1="352" x2="672" y2="352" />
+<line class="wall wall-external" data-wall-id="wall:bedroom-b1:0" data-inspect-type="wall" data-inspect-id="wall:bedroom-b1:0" x1="672" y1="352" x2="672" y2="592" />
+<line class="wall wall-shared" data-wall-id="wall:bedroom-b2:0:piece0" data-inspect-type="wall" data-inspect-id="wall:bedroom-b2:0:piece0" x1="672" y1="592" x2="576" y2="592" />
+<line class="wall wall-shared" data-wall-id="wall:bedroom-b2:0:piece1" data-inspect-type="wall" data-inspect-id="wall:bedroom-b2:0:piece1" x1="518.4" y1="592" x2="432" y2="592" />
+<line class="wall wall-shared" data-wall-id="wall:bedroom-b3:0" data-inspect-type="wall" data-inspect-id="wall:bedroom-b3:0" x1="432" y1="592" x2="432" y2="352" />
+<line class="wall wall-external" data-wall-id="wall:dining-b0:0" data-inspect-type="wall" data-inspect-id="wall:dining-b0:0" x1="352" y1="32" x2="672" y2="32" />
+<line class="wall wall-external" data-wall-id="wall:dining-b1:0:piece0" data-inspect-type="wall" data-inspect-id="wall:dining-b1:0:piece0" x1="672" y1="32" x2="672" y2="192" />
+<line class="wall wall-external" data-wall-id="wall:dining-b1:0:piece1" data-inspect-type="wall" data-inspect-id="wall:dining-b1:0:piece1" x1="672" y1="264" x2="672" y2="352" />
+<line class="wall wall-shared" data-wall-id="wall:dining-b2:0" data-inspect-type="wall" data-inspect-id="wall:dining-b2:0" x1="672" y1="352" x2="432" y2="352" />
+<line class="wall wall-shared" data-wall-id="wall:dining-b2:1:piece0" data-inspect-type="wall" data-inspect-id="wall:dining-b2:1:piece0" x1="432" y1="352" x2="424" y2="352" />
+<line class="wall wall-shared" data-wall-id="wall:dining-b2:1:piece1" data-inspect-type="wall" data-inspect-id="wall:dining-b2:1:piece1" x1="358.4" y1="352" x2="352" y2="352" />
+<line class="wall wall-shared" data-wall-id="wall:dining-b3:0:piece0" data-inspect-type="wall" data-inspect-id="wall:dining-b3:0:piece0" x1="352" y1="352" x2="352" y2="292" />
+<line class="wall wall-shared" data-wall-id="wall:dining-b3:0:piece1" data-inspect-type="wall" data-inspect-id="wall:dining-b3:0:piece1" x1="352" y1="92" x2="352" y2="32" />
+<line class="wall wall-shared" data-wall-id="wall:kitchen-b0:0" data-inspect-type="wall" data-inspect-id="wall:kitchen-b0:0" x1="32" y1="352" x2="352" y2="352" />
+<line class="wall wall-shared" data-wall-id="wall:kitchen-b0:1:piece0" data-inspect-type="wall" data-inspect-id="wall:kitchen-b0:1:piece0" x1="352" y1="352" x2="358.4" y2="352" />
+<line class="wall wall-shared" data-wall-id="wall:kitchen-b0:1:piece1" data-inspect-type="wall" data-inspect-id="wall:kitchen-b0:1:piece1" x1="424" y1="352" x2="432" y2="352" />
+<line class="wall wall-shared" data-wall-id="wall:kitchen-b1:0" data-inspect-type="wall" data-inspect-id="wall:kitchen-b1:0" x1="432" y1="352" x2="432" y2="592" />
+<line class="wall wall-external" data-wall-id="wall:kitchen-b2:0" data-inspect-type="wall" data-inspect-id="wall:kitchen-b2:0" x1="432" y1="592" x2="32" y2="592" />
+<line class="wall wall-external" data-wall-id="wall:kitchen-b3:0" data-inspect-type="wall" data-inspect-id="wall:kitchen-b3:0" x1="32" y1="592" x2="32" y2="352" />
+<line class="wall wall-external" data-wall-id="wall:living-b0:0" data-inspect-type="wall" data-inspect-id="wall:living-b0:0" x1="32" y1="32" x2="352" y2="32" />
+<line class="wall wall-shared" data-wall-id="wall:living-b1:0:piece0" data-inspect-type="wall" data-inspect-id="wall:living-b1:0:piece0" x1="352" y1="32" x2="352" y2="92" />
+<line class="wall wall-shared" data-wall-id="wall:living-b1:0:piece1" data-inspect-type="wall" data-inspect-id="wall:living-b1:0:piece1" x1="352" y1="292" x2="352" y2="352" />
+<line class="wall wall-shared" data-wall-id="wall:living-b2:0" data-inspect-type="wall" data-inspect-id="wall:living-b2:0" x1="352" y1="352" x2="32" y2="352" />
+<line class="wall wall-external" data-wall-id="wall:living-b3:0:piece0" data-inspect-type="wall" data-inspect-id="wall:living-b3:0:piece0" x1="32" y1="352" x2="32" y2="192" />
+<line class="wall wall-external" data-wall-id="wall:living-b3:0:piece1" data-inspect-type="wall" data-inspect-id="wall:living-b3:0:piece1" x1="32" y1="120" x2="32" y2="32" /></g>
+<g class="connector-guides"></g>
+<g class="architectural-symbols"><line class="architectural-symbol passage-symbol" data-inspect-type="connector" data-inspect-id="living-dining" x1="352" y1="92" x2="352" y2="292" />
+<g class="architectural-symbol door-symbol" data-inspect-type="connector" data-inspect-id="bedroom-bathroom"><line class="door-leaf" x1="576" y1="592" x2="576" y2="534.4" /><path class="door-swing" d="M 518.4 592 A 57.6 57.6 0 0 1 576 534.4" /></g>
+<g class="architectural-symbol door-symbol" data-inspect-type="connector" data-inspect-id="dining-kitchen"><line class="door-leaf" x1="424" y1="352" x2="424" y2="286.4" /><path class="door-swing" d="M 358.4 352 A 65.6 65.6 0 0 1 424 286.4" /></g>
+<g class="architectural-symbol door-symbol external-door-symbol" data-inspect-type="connector" data-inspect-id="dining-outside"><line class="door-leaf" x1="672" y1="192" x2="600" y2="192" /><path class="door-swing" d="M 672 264 A 72 72 0 0 1 600 192" /></g>
+<g class="architectural-symbol door-symbol external-door-symbol" data-inspect-type="connector" data-inspect-id="living-outside"><line class="door-leaf" x1="32" y1="192" x2="104" y2="192" /><path class="door-swing" d="M 32 120 A 72 72 0 0 1 104 192" /></g>
+<g class="architectural-symbol window-symbol" data-inspect-type="window" data-inspect-id="bathroom-window"><line class="window-glazing" x1="672" y1="672" x2="672" y2="752" /><line class="window-frame" x1="669" y1="672" x2="669" y2="752" /><line class="window-frame" x1="675" y1="672" x2="675" y2="752" /></g>
+<g class="architectural-symbol window-symbol" data-inspect-type="window" data-inspect-id="bedroom-window-1"><line class="window-glazing" x1="672" y1="432" x2="672" y2="512" /><line class="window-frame" x1="669" y1="432" x2="669" y2="512" /><line class="window-frame" x1="675" y1="432" x2="675" y2="512" /></g>
+<g class="architectural-symbol window-symbol" data-inspect-type="window" data-inspect-id="dining-window-1"><line class="window-glazing" x1="432" y1="32" x2="512" y2="32" /><line class="window-frame" x1="432" y1="35" x2="512" y2="35" /><line class="window-frame" x1="432" y1="29" x2="512" y2="29" /></g>
+<g class="architectural-symbol window-symbol" data-inspect-type="window" data-inspect-id="kitchen-window-1"><line class="window-glazing" x1="32" y1="512" x2="32" y2="432" /><line class="window-frame" x1="35" y1="512" x2="35" y2="432" /><line class="window-frame" x1="29" y1="512" x2="29" y2="432" /></g>
+<g class="architectural-symbol window-symbol" data-inspect-type="window" data-inspect-id="kitchen-window-2"><line class="window-glazing" x1="272" y1="592" x2="192" y2="592" /><line class="window-frame" x1="272" y1="589" x2="192" y2="589" /><line class="window-frame" x1="272" y1="595" x2="192" y2="595" /></g>
+<g class="architectural-symbol window-symbol" data-inspect-type="window" data-inspect-id="living-window-1"><line class="window-glazing" x1="112" y1="32" x2="192" y2="32" /><line class="window-frame" x1="112" y1="35" x2="192" y2="35" /><line class="window-frame" x1="112" y1="29" x2="192" y2="29" /></g></g>
+<g class="opening-targets"><line class="opening-target connector-target" data-inspect-type="connector" data-inspect-id="living-dining" data-edit-boundary="living-b1" data-edit-offset="0.75" data-edit-width="2.5" x1="352" y1="92" x2="352" y2="292" />
+<line class="opening-target connector-target" data-inspect-type="connector" data-inspect-id="dining-kitchen" data-edit-boundary="dining-b2" data-edit-offset="3.1" data-edit-width="0.82" x1="424" y1="352" x2="358.4" y2="352" />
+<line class="opening-target connector-target" data-inspect-type="connector" data-inspect-id="bedroom-bathroom" data-edit-boundary="bedroom-b2" data-edit-offset="1.2" data-edit-width="0.72" x1="576" y1="592" x2="518.4" y2="592" />
+<line class="opening-target connector-target" data-inspect-type="connector" data-inspect-id="living-outside" data-edit-boundary="living-b3" data-edit-offset="2" data-edit-width="0.9" x1="32" y1="192" x2="32" y2="120" />
+<line class="opening-target connector-target" data-inspect-type="connector" data-inspect-id="dining-outside" data-edit-boundary="dining-b1" data-edit-offset="2" data-edit-width="0.9" x1="672" y1="192" x2="672" y2="264" />
+<line class="opening-target window-target" data-inspect-type="window" data-inspect-id="living-window-1" data-edit-boundary="living-b0" data-edit-offset="1" data-edit-width="1" x1="112" y1="32" x2="192" y2="32" />
+<line class="opening-target window-target" data-inspect-type="window" data-inspect-id="dining-window-1" data-edit-boundary="dining-b0" data-edit-offset="1" data-edit-width="1" x1="432" y1="32" x2="512" y2="32" />
+<line class="opening-target window-target" data-inspect-type="window" data-inspect-id="kitchen-window-1" data-edit-boundary="kitchen-b3" data-edit-offset="1" data-edit-width="1" x1="32" y1="512" x2="32" y2="432" />
+<line class="opening-target window-target" data-inspect-type="window" data-inspect-id="kitchen-window-2" data-edit-boundary="kitchen-b2" data-edit-offset="2" data-edit-width="1" x1="272" y1="592" x2="192" y2="592" />
+<line class="opening-target window-target" data-inspect-type="window" data-inspect-id="bedroom-window-1" data-edit-boundary="bedroom-b1" data-edit-offset="1" data-edit-width="1" x1="672" y1="432" x2="672" y2="512" />
+<line class="opening-target window-target" data-inspect-type="window" data-inspect-id="bathroom-window" data-edit-boundary="bathroom-b1" data-edit-offset="1" data-edit-width="1" x1="672" y1="672" x2="672" y2="752" /></g>
+<g class="labels"><text class="room-label" data-room-id="living" data-inspect-type="room" data-inspect-id="living" x="192" y="192">Living Room</text>
+<text class="room-label" data-room-id="dining" data-inspect-type="room" data-inspect-id="dining" x="512" y="192">Dining Room</text>
+<text class="room-label" data-room-id="kitchen" data-inspect-type="room" data-inspect-id="kitchen" x="232" y="472">Kitchen</text>
+<text class="room-label" data-room-id="bedroom" data-inspect-type="room" data-inspect-id="bedroom" x="552" y="472">Bedroom</text>
+<text class="room-label" data-room-id="bathroom" data-inspect-type="room" data-inspect-id="bathroom" x="552" y="672">Bathroom</text></g>
+</svg></main>
+<aside>
+<h1>Inspector</h1>
+<div id="details" class="hint">Select a room, wall, connector, or window.</div>
+<div id="editor" hidden>
+<label for="offset">Offset (metres)</label>
+<input id="offset" type="number" step="0.1">
+<button id="apply" type="button">Apply offset</button>
+<button id="download" type="button">Download updated JSON</button>
+<p class="hint">Movement is constrained to the current boundary. Validation remains authoritative.</p>
+</div>
+</aside>
+<script>
+const records = {"connector:bedroom-bathroom":{"type":"connector","id":"bedroom-bathroom","title":"bedroom-bathroom","properties":{"connectorType":"door","roomA":"bedroom","roomB":"bathroom","boundaryA":"bedroom-b2","boundaryB":"bathroom-b0","offset":1.2,"width":0.72}},"connector:dining-kitchen":{"type":"connector","id":"dining-kitchen","title":"dining-kitchen","properties":{"connectorType":"door","roomA":"dining","roomB":"kitchen","boundaryA":"dining-b2","boundaryB":"kitchen-b0","offset":3.1,"width":0.82}},"connector:dining-outside":{"type":"connector","id":"dining-outside","title":"dining-outside","properties":{"connectorType":"external-door","roomA":"dining","boundaryA":"dining-b1","offset":2,"width":0.9}},"connector:living-dining":{"type":"connector","id":"living-dining","title":"living-dining","properties":{"connectorType":"open-passage","roomA":"living","roomB":"dining","boundaryA":"living-b1","boundaryB":"dining-b3","offset":0.75,"width":2.5}},"connector:living-outside":{"type":"connector","id":"living-outside","title":"living-outside","properties":{"connectorType":"external-door","roomA":"living","boundaryA":"living-b3","offset":2,"width":0.9}},"room:bathroom":{"type":"room","id":"bathroom","title":"Bathroom","properties":{"area":6,"boundaries":["bathroom-b0","bathroom-b1","bathroom-b2","bathroom-b3"],"connectors":["bedroom-bathroom"],"windows":["bathroom-window"]}},"room:bedroom":{"type":"room","id":"bedroom","title":"Bedroom","properties":{"area":9,"boundaries":["bedroom-b0","bedroom-b1","bedroom-b2","bedroom-b3"],"connectors":["bedroom-bathroom"],"windows":["bedroom-window-1"]}},"room:dining":{"type":"room","id":"dining","title":"Dining Room","properties":{"area":16,"boundaries":["dining-b0","dining-b1","dining-b2","dining-b3"],"connectors":["living-dining","dining-kitchen","dining-outside"],"windows":["dining-window-1"]}},"room:kitchen":{"type":"room","id":"kitchen","title":"Kitchen","properties":{"area":15,"boundaries":["kitchen-b0","kitchen-b1","kitchen-b2","kitchen-b3"],"connectors":["dining-kitchen"],"windows":["kitchen-window-1","kitchen-window-2"]}},"room:living":{"type":"room","id":"living","title":"Living Room","properties":{"area":16,"boundaries":["living-b0","living-b1","living-b2","living-b3"],"connectors":["living-dining","living-outside"],"windows":["living-window-1"]}},"wall:wall:bathroom-b0:0:piece0":{"type":"wall","id":"wall:bathroom-b0:0:piece0","title":"wall:bathroom-b0:0:piece0","properties":{"room":"bathroom","boundary":"bathroom-b0","classification":"shared","length":1.08,"adjacentRoom":"bedroom"}},"wall:wall:bathroom-b0:0:piece1":{"type":"wall","id":"wall:bathroom-b0:0:piece1","title":"wall:bathroom-b0:0:piece1","properties":{"room":"bathroom","boundary":"bathroom-b0","classification":"shared","length":1.2,"adjacentRoom":"bedroom"}},"wall:wall:bathroom-b1:0":{"type":"wall","id":"wall:bathroom-b1:0","title":"wall:bathroom-b1:0","properties":{"room":"bathroom","boundary":"bathroom-b1","classification":"external","length":2}},"wall:wall:bathroom-b2:0":{"type":"wall","id":"wall:bathroom-b2:0","title":"wall:bathroom-b2:0","properties":{"room":"bathroom","boundary":"bathroom-b2","classification":"external","length":3}},"wall:wall:bathroom-b3:0":{"type":"wall","id":"wall:bathroom-b3:0","title":"wall:bathroom-b3:0","properties":{"room":"bathroom","boundary":"bathroom-b3","classification":"external","length":2}},"wall:wall:bedroom-b0:0":{"type":"wall","id":"wall:bedroom-b0:0","title":"wall:bedroom-b0:0","properties":{"room":"bedroom","boundary":"bedroom-b0","classification":"shared","length":3,"adjacentRoom":"dining"}},"wall:wall:bedroom-b1:0":{"type":"wall","id":"wall:bedroom-b1:0","title":"wall:bedroom-b1:0","properties":{"room":"bedroom","boundary":"bedroom-b1","classification":"external","length":3}},"wall:wall:bedroom-b2:0:piece0":{"type":"wall","id":"wall:bedroom-b2:0:piece0","title":"wall:bedroom-b2:0:piece0","properties":{"room":"bedroom","boundary":"bedroom-b2","classification":"shared","length":1.2,"adjacentRoom":"bathroom"}},"wall:wall:bedroom-b2:0:piece1":{"type":"wall","id":"wall:bedroom-b2:0:piece1","title":"wall:bedroom-b2:0:piece1","properties":{"room":"bedroom","boundary":"bedroom-b2","classification":"shared","length":1.08,"adjacentRoom":"bathroom"}},"wall:wall:bedroom-b3:0":{"type":"wall","id":"wall:bedroom-b3:0","title":"wall:bedroom-b3:0","properties":{"room":"bedroom","boundary":"bedroom-b3","classification":"shared","length":3,"adjacentRoom":"kitchen"}},"wall:wall:dining-b0:0":{"type":"wall","id":"wall:dining-b0:0","title":"wall:dining-b0:0","properties":{"room":"dining","boundary":"dining-b0","classification":"external","length":4}},"wall:wall:dining-b1:0:piece0":{"type":"wall","id":"wall:dining-b1:0:piece0","title":"wall:dining-b1:0:piece0","properties":{"room":"dining","boundary":"dining-b1","classification":"external","length":2}},"wall:wall:dining-b1:0:piece1":{"type":"wall","id":"wall:dining-b1:0:piece1","title":"wall:dining-b1:0:piece1","properties":{"room":"dining","boundary":"dining-b1","classification":"external","length":1.1}},"wall:wall:dining-b2:0":{"type":"wall","id":"wall:dining-b2:0","title":"wall:dining-b2:0","properties":{"room":"dining","boundary":"dining-b2","classification":"shared","length":3,"adjacentRoom":"bedroom"}},"wall:wall:dining-b2:1:piece0":{"type":"wall","id":"wall:dining-b2:1:piece0","title":"wall:dining-b2:1:piece0","properties":{"room":"dining","boundary":"dining-b2","classification":"shared","length":0.1,"adjacentRoom":"kitchen"}},"wall:wall:dining-b2:1:piece1":{"type":"wall","id":"wall:dining-b2:1:piece1","title":"wall:dining-b2:1:piece1","properties":{"room":"dining","boundary":"dining-b2","classification":"shared","length":0.08,"adjacentRoom":"kitchen"}},"wall:wall:dining-b3:0:piece0":{"type":"wall","id":"wall:dining-b3:0:piece0","title":"wall:dining-b3:0:piece0","properties":{"room":"dining","boundary":"dining-b3","classification":"shared","length":0.75,"adjacentRoom":"living"}},"wall:wall:dining-b3:0:piece1":{"type":"wall","id":"wall:dining-b3:0:piece1","title":"wall:dining-b3:0:piece1","properties":{"room":"dining","boundary":"dining-b3","classification":"shared","length":0.75,"adjacentRoom":"living"}},"wall:wall:kitchen-b0:0":{"type":"wall","id":"wall:kitchen-b0:0","title":"wall:kitchen-b0:0","properties":{"room":"kitchen","boundary":"kitchen-b0","classification":"shared","length":4,"adjacentRoom":"living"}},"wall:wall:kitchen-b0:1:piece0":{"type":"wall","id":"wall:kitchen-b0:1:piece0","title":"wall:kitchen-b0:1:piece0","properties":{"room":"kitchen","boundary":"kitchen-b0","classification":"shared","length":0.08,"adjacentRoom":"dining"}},"wall:wall:kitchen-b0:1:piece1":{"type":"wall","id":"wall:kitchen-b0:1:piece1","title":"wall:kitchen-b0:1:piece1","properties":{"room":"kitchen","boundary":"kitchen-b0","classification":"shared","length":0.1,"adjacentRoom":"dining"}},"wall:wall:kitchen-b1:0":{"type":"wall","id":"wall:kitchen-b1:0","title":"wall:kitchen-b1:0","properties":{"room":"kitchen","boundary":"kitchen-b1","classification":"shared","length":3,"adjacentRoom":"bedroom"}},"wall:wall:kitchen-b2:0":{"type":"wall","id":"wall:kitchen-b2:0","title":"wall:kitchen-b2:0","properties":{"room":"kitchen","boundary":"kitchen-b2","classification":"external","length":5}},"wall:wall:kitchen-b3:0":{"type":"wall","id":"wall:kitchen-b3:0","title":"wall:kitchen-b3:0","properties":{"room":"kitchen","boundary":"kitchen-b3","classification":"external","length":3}},"wall:wall:living-b0:0":{"type":"wall","id":"wall:living-b0:0","title":"wall:living-b0:0","properties":{"room":"living","boundary":"living-b0","classification":"external","length":4}},"wall:wall:living-b1:0:piece0":{"type":"wall","id":"wall:living-b1:0:piece0","title":"wall:living-b1:0:piece0","properties":{"room":"living","boundary":"living-b1","classification":"shared","length":0.75,"adjacentRoom":"dining"}},"wall:wall:living-b1:0:piece1":{"type":"wall","id":"wall:living-b1:0:piece1","title":"wall:living-b1:0:piece1","properties":{"room":"living","boundary":"living-b1","classification":"shared","length":0.75,"adjacentRoom":"dining"}},"wall:wall:living-b2:0":{"type":"wall","id":"wall:living-b2:0","title":"wall:living-b2:0","properties":{"room":"living","boundary":"living-b2","classification":"shared","length":4,"adjacentRoom":"kitchen"}},"wall:wall:living-b3:0:piece0":{"type":"wall","id":"wall:living-b3:0:piece0","title":"wall:living-b3:0:piece0","properties":{"room":"living","boundary":"living-b3","classification":"external","length":2}},"wall:wall:living-b3:0:piece1":{"type":"wall","id":"wall:living-b3:0:piece1","title":"wall:living-b3:0:piece1","properties":{"room":"living","boundary":"living-b3","classification":"external","length":1.1}},"window:bathroom-window":{"type":"window","id":"bathroom-window","title":"bathroom-window","properties":{"room":"bathroom","boundary":"bathroom-b1","offset":1,"width":1}},"window:bedroom-window-1":{"type":"window","id":"bedroom-window-1","title":"bedroom-window-1","properties":{"room":"bedroom","boundary":"bedroom-b1","offset":1,"width":1}},"window:dining-window-1":{"type":"window","id":"dining-window-1","title":"dining-window-1","properties":{"room":"dining","boundary":"dining-b0","offset":1,"width":1}},"window:kitchen-window-1":{"type":"window","id":"kitchen-window-1","title":"kitchen-window-1","properties":{"room":"kitchen","boundary":"kitchen-b3","offset":1,"width":1}},"window:kitchen-window-2":{"type":"window","id":"kitchen-window-2","title":"kitchen-window-2","properties":{"room":"kitchen","boundary":"kitchen-b2","offset":2,"width":1}},"window:living-window-1":{"type":"window","id":"living-window-1","title":"living-window-1","properties":{"room":"living","boundary":"living-b0","offset":1,"width":1}}};
+const source = {"schemaVersion":"1.2","building":{"id":"apartment01","name":"Reference Apartment","floors":[{"id":"ground","name":"Ground Floor","elevation":0,"rooms":[{"id":"living","name":"Living Room","type":"living-room","geometry":{"shape":[[0,0],[4,0],[4,4],[0,4]]},"boundaries":[{"id":"living-b0","edgeIndex":0},{"id":"living-b1","edgeIndex":1},{"id":"living-b2","edgeIndex":2},{"id":"living-b3","edgeIndex":3}]},{"id":"dining","name":"Dining Room","type":"dining-room","geometry":{"shape":[[4,0],[8,0],[8,4],[4,4]]},"boundaries":[{"id":"dining-b0","edgeIndex":0},{"id":"dining-b1","edgeIndex":1},{"id":"dining-b2","edgeIndex":2},{"id":"dining-b3","edgeIndex":3}]},{"id":"kitchen","name":"Kitchen","type":"kitchen","geometry":{"shape":[[0,4],[5,4],[5,7],[0,7]]},"boundaries":[{"id":"kitchen-b0","edgeIndex":0},{"id":"kitchen-b1","edgeIndex":1},{"id":"kitchen-b2","edgeIndex":2},{"id":"kitchen-b3","edgeIndex":3}]},{"id":"bedroom","name":"Bedroom","type":"bedroom","geometry":{"shape":[[5,4],[8,4],[8,7],[5,7]]},"boundaries":[{"id":"bedroom-b0","edgeIndex":0},{"id":"bedroom-b1","edgeIndex":1},{"id":"bedroom-b2","edgeIndex":2},{"id":"bedroom-b3","edgeIndex":3}]},{"id":"bathroom","name":"Bathroom","type":"bathroom","geometry":{"shape":[[5,7],[8,7],[8,9],[5,9]]},"boundaries":[{"id":"bathroom-b0","edgeIndex":0},{"id":"bathroom-b1","edgeIndex":1},{"id":"bathroom-b2","edgeIndex":2},{"id":"bathroom-b3","edgeIndex":3}]}],"connectors":[{"id":"living-dining","type":"open-passage","roomA":"living","roomB":"dining","boundaryA":"living-b1","boundaryB":"dining-b3","offset":0.75,"width":2.5},{"id":"dining-kitchen","type":"door","roomA":"dining","roomB":"kitchen","boundaryA":"dining-b2","boundaryB":"kitchen-b0","offset":3.1,"geometry":{"width":0.82,"height":2.04,"style":"single-hinged"}},{"id":"bedroom-bathroom","type":"door","roomA":"bedroom","roomB":"bathroom","boundaryA":"bedroom-b2","boundaryB":"bathroom-b0","offset":1.2,"geometry":{"width":0.72,"height":2.04,"style":"single-hinged"}},{"id":"living-outside","type":"external-door","roomA":"living","boundaryA":"living-b3","offset":2,"geometry":{"width":0.9,"height":2.04,"style":"single-hinged"}},{"id":"dining-outside","type":"external-door","roomA":"dining","boundaryA":"dining-b1","offset":2,"geometry":{"width":0.9,"height":2.04,"style":"sliding"}}],"openings":[{"id":"living-window-1","type":"window","roomId":"living","boundaryId":"living-b0","offset":1},{"id":"dining-window-1","type":"window","roomId":"dining","boundaryId":"dining-b0","offset":1},{"id":"kitchen-window-1","type":"window","roomId":"kitchen","boundaryId":"kitchen-b3","offset":1},{"id":"kitchen-window-2","type":"window","roomId":"kitchen","boundaryId":"kitchen-b2","offset":2},{"id":"bedroom-window-1","type":"window","roomId":"bedroom","boundaryId":"bedroom-b1","offset":1},{"id":"bathroom-window","type":"window","roomId":"bathroom","boundaryId":"bathroom-b1","offset":1}]}]}};
+const debug = false;
+const details = document.getElementById("details");
+const editor = document.getElementById("editor");
+const offsetInput = document.getElementById("offset");
+const applyButton = document.getElementById("apply");
+const downloadButton = document.getElementById("download");
+let selected = null;
+
+function lookup(type, id) {
+  const key = type + ":" + id;
+  return records[key];
+}
+
+function renderRecord(record, type, id) {
+  if (!record) {
+    editor.hidden = true;
+    details.className = "error";
+    details.textContent = "No inspection record found. Type: " + type + "; ID: " + id;
+    return;
+  }
+
+  details.className = "";
+  const heading = document.createElement("h2");
+  heading.textContent = record.title;
+
+  const typeParagraph = document.createElement("p");
+  typeParagraph.textContent = "Type: " + record.type;
+
+  const list = document.createElement("dl");
+  for (const entry of Object.entries(record.properties)) {
+    const name = entry[0];
+    const value = entry[1];
+    const term = document.createElement("dt");
+    const description = document.createElement("dd");
+    term.textContent = name;
+    description.textContent = Array.isArray(value) ? value.join(", ") : String(value);
+    list.append(term, description);
+  }
+
+  details.replaceChildren(heading, typeParagraph, list);
+}
+
+function findSource(type, id) {
+  const floor = source.building.floors[0];
+  if (type === "connector") {
+    return (floor.connectors || []).find(function (item) { return item.id === id; });
+  }
+  if (type === "window") {
+    return (floor.openings || []).find(function (item) { return item.id === id; });
+  }
+  return undefined;
+}
+
+function findBoundary(boundaryId) {
+  const floor = source.building.floors[0];
+  for (const room of floor.rooms) {
+    const edge = (room.boundaries || []).find(function (boundary) {
+      return boundary.id === boundaryId;
+    });
+    if (edge) return { room: room, edge: edge };
+  }
+  return undefined;
+}
+
+function updateLine(element, requestedOffset) {
+  const boundaryId = element.dataset.editBoundary;
+  const match = findBoundary(boundaryId);
+  if (!match) {
+    details.className = "error";
+    details.textContent = "Boundary not found: " + boundaryId;
+    return;
+  }
+
+  const shape = match.room.geometry.shape;
+  const edgeIndex = match.edge.edgeIndex;
+  const a = shape[edgeIndex];
+  const b = shape[(edgeIndex + 1) % shape.length];
+  const boundaryLength = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const width = Number(element.dataset.editWidth);
+  const maximumOffset = Math.max(0, boundaryLength - width);
+  const boundedOffset = Math.max(0, Math.min(maximumOffset, requestedOffset));
+
+  const pointAt = function (distance) {
+    return {
+      x: a[0] + (b[0] - a[0]) * distance / boundaryLength,
+      y: a[1] + (b[1] - a[1]) * distance / boundaryLength,
+    };
+  };
+
+  const svgElement = document.querySelector("svg");
+  const viewBox = svgElement.viewBox.baseVal;
+  const allPoints = source.building.floors[0].rooms.flatMap(function (room) {
+    return room.geometry.shape;
+  });
+  const minX = Math.min.apply(null, allPoints.map(function (point) { return point[0]; }));
+  const maxX = Math.max.apply(null, allPoints.map(function (point) { return point[0]; }));
+  const minY = Math.min.apply(null, allPoints.map(function (point) { return point[1]; }));
+  const maxY = Math.max.apply(null, allPoints.map(function (point) { return point[1]; }));
+  const padding = 32;
+  const scaleX = (viewBox.width - padding * 2) / (maxX - minX);
+  const scaleY = (viewBox.height - padding * 2) / (maxY - minY);
+  const scale = Math.min(scaleX, scaleY);
+
+  const toSvg = function (point) {
+    return {
+      x: (point.x - minX) * scale + padding,
+      y: (point.y - minY) * scale + padding,
+    };
+  };
+
+  const start = toSvg(pointAt(boundedOffset));
+  const end = toSvg(pointAt(boundedOffset + width));
+  element.setAttribute("x1", String(start.x));
+  element.setAttribute("y1", String(start.y));
+  element.setAttribute("x2", String(end.x));
+  element.setAttribute("y2", String(end.y));
+  element.dataset.editOffset = String(boundedOffset);
+
+  const type = element.dataset.inspectType;
+  const id = element.dataset.inspectId;
+  const sourceItem = findSource(type, id);
+  if (sourceItem) sourceItem.offset = boundedOffset;
+
+  const record = lookup(type, id);
+  if (record && record.properties) record.properties.offset = boundedOffset;
+  offsetInput.value = String(boundedOffset);
+  renderRecord(record, type, id);
+}
+
+// Event delegation handles rooms, walls, connectors, and windows, including
+// SVG elements added after the original renderer created the document.
+document.addEventListener("click", function (event) {
+  const rawTarget = event.target;
+  if (!(rawTarget instanceof Element)) return;
+
+  const target = rawTarget.closest("[data-inspect-type][data-inspect-id]");
+  if (!target) return;
+
+  event.stopPropagation();
+  if (selected) selected.classList.remove("selected");
+  selected = target;
+  selected.classList.add("selected");
+
+  const type = target.dataset.inspectType;
+  const id = target.dataset.inspectId;
+  if (!type || !id) return;
+
+  if (debug) console.log("Selected", type, id);
+  const record = lookup(type, id);
+  renderRecord(record, type, id);
+
+  const editable = type === "connector" || type === "window";
+  editor.hidden = !editable || !record;
+  if (editable && record) {
+    const sourceItem = findSource(type, id);
+    offsetInput.value = target.dataset.editOffset || String(sourceItem ? sourceItem.offset : 0);
+  }
+});
+
+applyButton.addEventListener("click", function () {
+  if (!selected) return;
+  const value = Number(offsetInput.value);
+  if (!Number.isFinite(value)) {
+    details.className = "error";
+    details.textContent = "Offset must be a finite number.";
+    return;
+  }
+  updateLine(selected, value);
+});
+
+downloadButton.addEventListener("click", function () {
+  const blob = new Blob([JSON.stringify(source, null, 2)], { type: "application/json" });
+  const anchor = document.createElement("a");
+  anchor.href = URL.createObjectURL(blob);
+  anchor.download = "reference-apartment-edited.json";
+  anchor.click();
+  URL.revokeObjectURL(anchor.href);
+});
+</script>
+</body>
+</html>

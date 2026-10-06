@@ -1,0 +1,24 @@
+import { readFileSync, writeFileSync } from "node:fs";
+import { resolveConnectors } from "../src/generation/ConnectorResolver.js";
+import { generateFloorGeometry } from "../src/generation/GeometryPipeline.js";
+import { resolveWallOpenings } from "../src/generation/OpeningResolver.js";
+import { resolveWindows } from "../src/generation/WindowResolver.js";
+import { addArchitecturalSymbols } from "../src/svg/SvgArchitecturalSymbolsPatch.js";
+import { renderFloorSvg } from "../src/svg/SvgRenderer.js";
+const input = process.argv[2] ?? "examples/reference-apartment-v1.2.json";
+const output = process.argv[3] ?? "examples/reference-apartment-symbols.svg";
+const document = JSON.parse(readFileSync(input, "utf8"));
+const source = document.building.floors[0];
+if (!source)
+    throw new Error("No floor found.");
+const generated = generateFloorGeometry(source.rooms);
+const connectors = resolveConnectors(source.connectors ?? [], generated);
+const opened = resolveWallOpenings(generated, connectors);
+const floor = { ...generated, wallSegments: opened.wallSegments };
+const windows = resolveWindows((source.openings ?? []).filter(o => o.type === "window"), generated);
+const points = source.rooms.flatMap(r => r.geometry.shape);
+const minX = Math.min(...points.map(p => p[0])), minY = Math.min(...points.map(p => p[1]));
+let svg = renderFloorSvg(source.rooms, floor, { title: document.building.name ?? "Reference Apartment" });
+svg = addArchitecturalSymbols(svg, { minX, minY, connectors, windows });
+writeFileSync(output, svg, "utf8");
+console.log(`Generated ${output} with ${connectors.length} connector symbol(s) and ${windows.length} window symbol(s).`);
