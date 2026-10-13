@@ -1,0 +1,672 @@
+{
+  "schemaVersion": "1.2",
+  "building": {
+    "id": "reference-home",
+    "name": "Reference Home",
+    "floors": [
+      {
+        "id": "ground",
+        "name": "Ground Floor",
+        "elevation": 0,
+        "rooms": [
+          {
+            "id": "dining",
+            "name": "Dining Room",
+            "type": "dining-room",
+            "geometry": {
+              "shape": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  4,
+                  0
+                ],
+                [
+                  4,
+                  3
+                ],
+                [
+                  0,
+                  3
+                ]
+              ]
+            },
+            "boundaries": [
+              {
+                "id": "dining-b0",
+                "edgeIndex": 0
+              },
+              {
+                "id": "dining-b1",
+                "edgeIndex": 1
+              },
+              {
+                "id": "dining-b2",
+                "edgeIndex": 2
+              },
+              {
+                "id": "dining-b3",
+                "edgeIndex": 3
+              }
+            ]
+          },
+          {
+            "id": "living",
+            "name": "Living Room",
+            "type": "living-room",
+            "geometry": {
+              "shape": [
+                [
+                  -6,
+                  0
+                ],
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  4
+                ],
+                [
+                  -6,
+                  4
+                ]
+              ]
+            },
+            "boundaries": [
+              {
+                "id": "living-b0",
+                "edgeIndex": 0
+              },
+              {
+                "id": "living-b1",
+                "edgeIndex": 1
+              },
+              {
+                "id": "living-b2",
+                "edgeIndex": 2
+              },
+              {
+                "id": "living-b3",
+                "edgeIndex": 3
+              }
+            ]
+          },
+          {
+            "id": "kitchen",
+            "name": "Kitchen",
+            "type": "kitchen",
+            "geometry": {
+              "shape": [
+                [
+                  4,
+                  1
+                ],
+                [
+                  8,
+                  1
+                ],
+                [
+                  8,
+                  4
+                ],
+                [
+                  4,
+                  4
+                ]
+              ]
+            },
+            "boundaries": [
+              {
+                "id": "kitchen-b0",
+                "edgeIndex": 0
+              },
+              {
+                "id": "kitchen-b1",
+                "edgeIndex": 1
+              },
+              {
+                "id": "kitchen-b2",
+                "edgeIndex": 2
+              },
+              {
+                "id": "kitchen-b3",
+                "edgeIndex": 3
+              }
+            ]
+          },
+          {
+            "id": "bath",
+            "name": "Bath",
+            "type": "bathroom",
+            "geometry": {
+              "shape": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  4,
+                  3
+                ],
+                [
+                  4,
+                  6
+                ],
+                [
+                  0,
+                  6
+                ]
+              ]
+            },
+            "boundaries": [
+              {
+                "id": "bath-b0",
+                "edgeIndex": 0
+              },
+              {
+                "id": "bath-b1",
+                "edgeIndex": 1
+              },
+              {
+                "id": "bath-b2",
+                "edgeIndex": 2
+              },
+              {
+                "id": "bath-b3",
+                "edgeIndex": 3
+              }
+            ]
+          },
+          {
+            "id": "front-hall",
+            "name": "Front Hall",
+            "type": "hall",
+            "geometry": {
+              "shape": [
+                [
+                  4,
+                  4
+                ],
+                [
+                  8,
+                  4
+                ],
+                [
+                  8,
+                  7
+                ],
+                [
+                  4,
+                  7
+                ]
+              ]
+            },
+            "boundaries": [
+              {
+                "id": "front-hall-b0",
+                "edgeIndex": 0
+              },
+              {
+                "id": "front-hall-b1",
+                "edgeIndex": 1
+              },
+              {
+                "id": "front-hall-b2",
+                "edgeIndex": 2
+              },
+              {
+                "id": "front-hall-b3",
+                "edgeIndex": 3
+              }
+            ]
+          },
+          {
+            "id": "playroom",
+            "name": "Playroom",
+            "type": "other",
+            "geometry": {
+              "shape": [
+                [
+                  -12,
+                  -2
+                ],
+                [
+                  -6,
+                  -2
+                ],
+                [
+                  -6,
+                  2
+                ],
+                [
+                  -12,
+                  2
+                ]
+              ]
+            },
+            "boundaries": [
+              {
+                "id": "playroom-b0",
+                "edgeIndex": 0
+              },
+              {
+                "id": "playroom-b1",
+                "edgeIndex": 1
+              },
+              {
+                "id": "playroom-b2",
+                "edgeIndex": 2
+              },
+              {
+                "id": "playroom-b3",
+                "edgeIndex": 3
+              }
+            ]
+          },
+          {
+            "id": "small-hall",
+            "name": "Small Hall",
+            "type": "hall",
+            "geometry": {
+              "shape": [
+                [
+                  -6,
+                  4
+                ],
+                [
+                  -3,
+                  4
+                ],
+                [
+                  -3,
+                  6
+                ],
+                [
+                  -6,
+                  6
+                ]
+              ]
+            },
+            "boundaries": [
+              {
+                "id": "small-hall-b0",
+                "edgeIndex": 0
+              },
+              {
+                "id": "small-hall-b1",
+                "edgeIndex": 1
+              },
+              {
+                "id": "small-hall-b2",
+                "edgeIndex": 2
+              },
+              {
+                "id": "small-hall-b3",
+                "edgeIndex": 3
+              }
+            ]
+          },
+          {
+            "id": "bedroom-front",
+            "name": "Bedroom Front",
+            "type": "bedroom",
+            "geometry": {
+              "shape": [
+                [
+                  0,
+                  6
+                ],
+                [
+                  4,
+                  6
+                ],
+                [
+                  4,
+                  9
+                ],
+                [
+                  0,
+                  9
+                ]
+              ]
+            },
+            "boundaries": [
+              {
+                "id": "bedroom-front-b0",
+                "edgeIndex": 0
+              },
+              {
+                "id": "bedroom-front-b1",
+                "edgeIndex": 1
+              },
+              {
+                "id": "bedroom-front-b2",
+                "edgeIndex": 2
+              },
+              {
+                "id": "bedroom-front-b3",
+                "edgeIndex": 3
+              }
+            ]
+          },
+          {
+            "id": "laundry",
+            "name": "Laundry",
+            "type": "hall",
+            "geometry": {
+              "shape": [
+                [
+                  -9,
+                  2
+                ],
+                [
+                  -6,
+                  2
+                ],
+                [
+                  -6,
+                  4
+                ],
+                [
+                  -9,
+                  4
+                ]
+              ]
+            },
+            "boundaries": [
+              {
+                "id": "laundry-b0",
+                "edgeIndex": 0
+              },
+              {
+                "id": "laundry-b1",
+                "edgeIndex": 1
+              },
+              {
+                "id": "laundry-b2",
+                "edgeIndex": 2
+              },
+              {
+                "id": "laundry-b3",
+                "edgeIndex": 3
+              }
+            ]
+          },
+          {
+            "id": "toilet",
+            "name": "Toilet",
+            "type": "bathroom",
+            "geometry": {
+              "shape": [
+                [
+                  -3,
+                  4
+                ],
+                [
+                  0,
+                  4
+                ],
+                [
+                  0,
+                  6
+                ],
+                [
+                  -3,
+                  6
+                ]
+              ]
+            },
+            "boundaries": [
+              {
+                "id": "toilet-b0",
+                "edgeIndex": 0
+              },
+              {
+                "id": "toilet-b1",
+                "edgeIndex": 1
+              },
+              {
+                "id": "toilet-b2",
+                "edgeIndex": 2
+              },
+              {
+                "id": "toilet-b3",
+                "edgeIndex": 3
+              }
+            ]
+          },
+          {
+            "id": "main-bedroom",
+            "name": "Main Bedroom",
+            "type": "bedroom",
+            "geometry": {
+              "shape": [
+                [
+                  -8,
+                  6
+                ],
+                [
+                  -4,
+                  6
+                ],
+                [
+                  -4,
+                  9
+                ],
+                [
+                  -8,
+                  9
+                ]
+              ]
+            },
+            "boundaries": [
+              {
+                "id": "main-bedroom-b0",
+                "edgeIndex": 0
+              },
+              {
+                "id": "main-bedroom-b1",
+                "edgeIndex": 1
+              },
+              {
+                "id": "main-bedroom-b2",
+                "edgeIndex": 2
+              },
+              {
+                "id": "main-bedroom-b3",
+                "edgeIndex": 3
+              }
+            ]
+          }
+        ],
+        "connectors": [
+          {
+            "id": "living-dining",
+            "type": "open-passage",
+            "roomA": "living",
+            "roomB": "dining",
+            "boundaryA": "living-b1",
+            "boundaryB": "dining-b3",
+            "offset": 1.1,
+            "geometry": {
+              "width": 1.8,
+              "height": 2.04
+            },
+            "style": "single-hinged"
+          },
+          {
+            "id": "living-left-door--playroom-right-door",
+            "type": "door",
+            "roomA": "playroom",
+            "roomB": "living",
+            "boundaryA": "playroom-b1",
+            "boundaryB": "living-b3",
+            "offset": 2.3499999999999996,
+            "geometry": {
+              "width": 0.9,
+              "height": 2.04
+            },
+            "style": "single-hinged"
+          },
+          {
+            "id": "dining-right-open-passage--kitchen-left-open-passage",
+            "type": "open-passage",
+            "roomA": "kitchen",
+            "roomB": "dining",
+            "boundaryA": "kitchen-b3",
+            "boundaryB": "dining-b1",
+            "offset": 0.6,
+            "geometry": {
+              "width": 1.8,
+              "height": 2.04
+            },
+            "style": "single-hinged"
+          },
+          {
+            "id": "living-bottom-door-2--small-hall-top-door",
+            "type": "door",
+            "roomA": "living",
+            "roomB": "small-hall",
+            "boundaryA": "living-b2",
+            "boundaryB": "small-hall-b0",
+            "offset": 0.7500000000000002,
+            "geometry": {
+              "width": 0.9,
+              "height": 2.04
+            },
+            "style": "single-hinged"
+          },
+          {
+            "id": "small-hall-right-door--toilet-left-door",
+            "type": "door",
+            "roomA": "toilet",
+            "roomB": "small-hall",
+            "boundaryA": "toilet-b3",
+            "boundaryB": "small-hall-b1",
+            "offset": 1.1,
+            "geometry": {
+              "width": 0.9,
+              "height": 2.04
+            },
+            "style": "single-hinged"
+          },
+          {
+            "id": "main-bedroom-top-door--small-hall-bottom-door",
+            "type": "door",
+            "roomA": "main-bedroom",
+            "roomB": "small-hall",
+            "boundaryA": "main-bedroom-b0",
+            "boundaryB": "small-hall-b2",
+            "offset": 2.75,
+            "geometry": {
+              "width": 0.9,
+              "height": 2.04
+            },
+            "style": "single-hinged"
+          },
+          {
+            "id": "bedroom-front-left-door--main-bedroom-right-door",
+            "type": "door",
+            "roomA": "main-bedroom",
+            "roomB": "bedroom-front",
+            "boundaryA": "main-bedroom-b1",
+            "boundaryB": "bedroom-front-b3",
+            "offset": 0.15000000000000008,
+            "geometry": {
+              "width": 0.9,
+              "height": 2.04
+            },
+            "style": "single-hinged"
+          },
+          {
+            "id": "bath-bottom-door--bedroom-front-top-door",
+            "type": "door",
+            "roomA": "bedroom-front",
+            "roomB": "bath",
+            "boundaryA": "bedroom-front-b0",
+            "boundaryB": "bath-b2",
+            "offset": 0.35000000000000003,
+            "geometry": {
+              "width": 0.9,
+              "height": 2.04
+            },
+            "style": "single-hinged"
+          },
+          {
+            "id": "bath-top-door--dining-bottom-door",
+            "type": "door",
+            "roomA": "bath",
+            "roomB": "dining",
+            "boundaryA": "bath-b0",
+            "boundaryB": "dining-b2",
+            "offset": 2.75,
+            "geometry": {
+              "width": 0.9,
+              "height": 2.04
+            },
+            "style": "single-hinged"
+          },
+          {
+            "id": "front-hall-right-door--outside-left-door",
+            "type": "external-door",
+            "roomA": "front-hall",
+            "boundaryA": "front-hall-b1",
+            "offset": 1.05,
+            "geometry": {
+              "width": 0.9,
+              "height": 2.04
+            },
+            "style": "single-hinged"
+          },
+          {
+            "id": "dining-right-door--front-hall-left-door",
+            "type": "door",
+            "roomA": "dining",
+            "roomB": "front-hall",
+            "boundaryA": "dining-b1",
+            "boundaryB": "front-hall-b3",
+            "offset": 2.1,
+            "geometry": {
+              "width": 0.9,
+              "height": 2.04
+            },
+            "style": "single-hinged"
+          },
+          {
+            "id": "laundry-top-door--playroom-bottom-door",
+            "type": "door",
+            "roomA": "laundry",
+            "roomB": "playroom",
+            "boundaryA": "laundry-b0",
+            "boundaryB": "playroom-b2",
+            "offset": 0.7500000000000002,
+            "geometry": {
+              "width": 0.9,
+              "height": 2.04
+            },
+            "style": "single-hinged"
+          },
+          {
+            "id": "laundry-right-door--small-hall-left-door",
+            "type": "door",
+            "roomA": "small-hall",
+            "roomB": "laundry",
+            "boundaryA": "small-hall-b3",
+            "boundaryB": "laundry-b1",
+            "offset": 0,
+            "geometry": {
+              "width": 0.9,
+              "height": 2.04
+            },
+            "style": "single-hinged"
+          }
+        ],
+        "openings": []
+      }
+    ]
+  }
+}
