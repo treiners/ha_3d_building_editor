@@ -27,6 +27,26 @@ Building Model
 
 ## Packages
 
+Current state (implemented as independent projects, wired together by npm workspaces):
+
+```text
+packages/
+├── room-graph/          rooms + connectors + relationships, no coordinates
+├── floormap-editor/     graph -> floor plan; refine by dragging (main tool)
+├── floormap-structure/  floor-plan model, geometry pipeline, validation, SVG
+└── shared/              shared fixtures (reference-home-connectors.json)
+```
+
+Planned (not started): `renderer-3d`, `ha-panel`, Home Assistant adapter. The responsibilities listed for `core` below are today covered by `floormap-structure`; `editor-2d` is today `room-graph` + `floormap-editor`.
+
+```text
+room-graph -> floormap-editor -> floormap-structure -> renderer-3d -> ha-panel
+(graph)       (layout)           (walls, openings,     (planned)      (planned)
+                                  validation, SVG)
+```
+
+Planned package layout:
+
 ```text
 packages/
 ├── core/

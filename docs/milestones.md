@@ -1,5 +1,22 @@
 # Prototype Milestones
 
+## Status (2026-10-14)
+
+The milestones below predate the current package structure (`room-graph`, `floormap-editor`, `floormap-structure`). Rough mapping:
+
+| Milestone | Status | Where |
+|---|---|---|
+| 0 Foundation | done | repository, docs, TypeScript packages, npm workspaces |
+| 1 Semantic model | partly | `floormap-structure` (model, JSON); the room graph schema lives in `room-graph` / `floormap-editor` |
+| 2 2D viewer | done | SVG in `floormap-structure`, canvas in `floormap-editor` |
+| 3 Room editor | partly | rectangular rooms in `floormap-editor`; polygon rooms not started |
+| 4 Connectivity | done | connectors and relationships in `room-graph` and `floormap-editor` |
+| 5 Doors and windows | partly | door/window details in `floormap-editor`; opening edits in `floormap-structure` |
+| 6 Geometry engine | partly | wall and opening generation in `floormap-structure` |
+| 7-10 3D viewer, Home Assistant, visualisation, MVP | not started | |
+
+Next in the editor: polygon rooms (wall-graph model, schema 2.15).
+
 ## Milestone 0 - Foundation
 
 Deliverables:

@@ -1,5 +1,0 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { createEmptyBuildingGraph } from "../src/room-entry/BuildingGraphStore.js";
-import { renderRoomGraphEditorHtml } from "../src/room-entry/RoomGraphEditorDocument.js";
-describe("editor", () => { it("renders square rooms, ports and continuous-drag logic", () => { const h = renderRoomGraphEditorHtml(createEmptyBuildingGraph()); assert.match(h, /room-box/); assert.doesNotMatch(h, /rx=/); assert.match(h, /Add connector/); assert.match(h, /Link connectors/); assert.match(h, /update\(id\)/); }); });

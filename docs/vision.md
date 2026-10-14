@@ -326,6 +326,10 @@ The planned technical direction is:
 
 These choices establish the current direction but may be refined through prototyping.
 
+## Current implementation
+
+The 2D stage exists as three independent packages (see `architecture.md` and the root README): `room-graph` describes rooms and connectors without coordinates, `floormap-editor` turns that graph into a floor plan that the user refines by dragging, and `floormap-structure` holds the floor-plan model, geometry pipeline and SVG visualisation. The floormap editor is the main tool today. Polygon rooms, the 3D renderer and the Home Assistant adapter are still to come.
+
 ## Guiding question
 
 Before introducing a feature, the project should ask:

@@ -1,56 +1,17 @@
 # Changelog
 
-All notable changes to this project are documented in this file.
+Suite timeline, newest first. Each entry names the package and links to its own changelog for details. Packages are versioned independently.
 
-## [1.4.0] - 2026-10-06
+## 2026-10-13 - floormap-editor 3.0.0-beta.1
+First beta of the floor-plan editor (formerly `room-graph-mapping-v2.14-preview`): initial mapper, move modes, wall and corner dragging with auto-resize, locks, undo / redo, Close gaps / Fit, room and connector editing, connector and door/window details, building defaults, new UI. Graph `schemaVersion` stays 2.14 (all additions optional).
+Details: [packages/floormap-editor/CHANGELOG.md](packages/floormap-editor/CHANGELOG.md)
 
-### Added
+## 2026-10-14 - repository restructure
+- Packages renamed: `room-graph-mapping-v2.14-preview` -> `floormap-editor`, `room-side-connectors-v2.1-preview` -> `room-graph`, `core` -> `floormap-structure`.
+- Shared fixture `reference-home-connectors.json` moved to `packages/shared/`.
+- Core-specific docs moved to `packages/floormap-structure/docs`; old README versions to `docs/history`.
+- Root `package.json` with npm workspaces; root README now led by the floormap editor.
 
-- Permanent architectural symbols for internal doors, external doors, open passages, and windows.
-- Door leaves and swing arcs for hinged-door connectors.
-- Distinct styling for external doors.
-- Visible window glazing and frame lines without requiring hover.
-- Interactive selection for rooms, walls, connectors, and windows.
-- Inspector details for IDs, boundaries, classifications, room relationships, offsets, widths, and related entities.
-- Constrained offset editing for doors, passages, and windows along their assigned boundaries.
-- Export of edited building definitions to JSON.
-- Opening validation for missing boundaries, room/boundary mismatches, invalid dimensions, out-of-bound openings, shared-wall windows, and opening overlaps.
-- Room and wall inspection metadata with delegated click handling.
-- Reference apartment examples for validation, symbols, and interactive editing.
-- Automated tests for architectural symbols, inspection metadata, click targets, editing, windows, and opening validation.
-
-### Changed
-
-- Connector openings are represented by actual cut wall segments rather than relying on coloured connector overlays.
-- Connector guides are treated as optional debugging aids.
-- Windows and connectors are now first-class inspectable entities.
-- The interactive reference apartment uses resolved wall openings and permanent architectural symbols.
-- SVG rendering now separates visible symbols from larger transparent interaction targets.
-
-### Fixed
-
-- Corrected connector click-handler wiring through delegated events.
-- Added missing room and wall inspection metadata.
-- Fixed editor generation order so the floor source is loaded before geometry resolution.
-- Removed duplicate raw/resolved window declarations in the editor example.
-- Corrected raw window definitions versus resolved-window usage across editing, inspection, and rendering.
-
-### Validation behaviour
-
-- Windows on shared walls produce warnings by default.
-- Missing boundaries, invalid intervals, out-of-bound openings, and overlapping openings produce errors.
-- Touching opening endpoints are not treated as overlaps within the configured tolerance.
-
-### Release significance
-
-v1.4 is the first cohesive release of the foundational 2D building editor. It completes the initial pipeline from structured building data through geometry, wall openings, validation, architectural SVG rendering, interactive inspection, constrained editing, and JSON export.
-
-## Pre-release development milestones
-
-- Boundary generation and overlap detection.
-- Shared-boundary and wall-segment generation.
-- Geometry pipeline and SVG floor-plan rendering.
-- Connector resolution and actual wall openings.
-- Window resolution and rendering.
-- Opening validation.
-- Interactive inspection and opening editing.
+## 2026-10-06 - floormap-structure 1.4.0
+First release of the 2D modelling stage: geometry generation, validation, SVG rendering, inspection, constrained opening edits, JSON export, permanent architectural symbols.
+Details: [packages/floormap-structure/CHANGELOG.md](packages/floormap-structure/CHANGELOG.md)

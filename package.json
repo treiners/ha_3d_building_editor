@@ -1,0 +1,13 @@
+{
+  "name": "ha_3d_building_editor",
+  "private": true,
+  "workspaces": [
+    "packages/floormap-editor",
+    "packages/room-graph",
+    "packages/floormap-structure"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm test --workspaces"
+  }
+}
