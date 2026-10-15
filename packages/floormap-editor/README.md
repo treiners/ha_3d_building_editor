@@ -7,10 +7,10 @@ A browser editor that turns a **room graph without coordinates** (rooms, connect
 ## Quick start
 ```bash
 npm install
-npm test                                   # tsc build + node --test (179 tests)
+npm test                                   # tsc build + node --test
 node dist/examples/generate.js ../shared/reference-home-connectors.json examples/room-graph_mapping.html
 ```
-Open `examples/room-graph_mapping.html` in a browser. Optional end-to-end checks in a fake DOM: `npm i -D jsdom`, then `node scripts/browser-smoke.mjs` and `node scripts/browser-smoke-connectors.mjs`.
+Open `examples/room-graph_mapping.html` in a browser. Optional end-to-end checks in a fake DOM: `npm i -D jsdom`, then `node scripts/browser-smoke.mjs`, `node scripts/browser-smoke-connectors.mjs` and `node scripts/browser-smoke-entities.mjs`.
 
 ## What the editor does
 - **Initial layout:** rooms without coordinates are placed by a deterministic mapper (*Map* button); rooms that already have a layout are kept.
@@ -20,6 +20,7 @@ Open `examples/room-graph_mapping.html` in a browser. Optional end-to-end checks
 - **Connectors:** table of all connectors, width, door type, door swing (hinge, swing side with room names, open angle, drag handle on the plan), window sill / head height, optional width bars on the plan.
 - **Building:** wall thickness, wall height, floor thickness.
 - **Layout of the UI:** toolbar above the plan (undo / redo, Map / Close gaps / Fit, tool, move mode, zoom, grid, view, load / save), tabs *Layout | Connectors | Building*, an inspector for the selected room or connector, a status bar. A *Classic layout* checkbox shows the old stacked sidebar for comparison.
+- **Entity placement mode** (`Floor plan | Entities` switch at the top of the sidebar): place lights, motion sensors, environment sensors (temperature, humidity, co2, ...), smoke / fire detectors, water leak sensors and door / window contacts on the finished plan, as the link to Home Assistant. The floor plan is read-only in this mode. Entities are stored relative to their room and follow it when it is moved or resized (proportionally, or keeping the distance to a corner, selectable). Motion sensors show a coverage cone with handles for facing, range and field of view. Place and List tabs, inspector, diagnostics. See `docs/V2.16-ENTITIES.md`.
 
 ## File format additions (all optional)
 *Save graph* writes every default explicitly:
@@ -36,8 +37,24 @@ Open `examples/room-graph_mapping.html` in a browser. Optional end-to-end checks
 ```
 The two connectors of a door are saved as mirror images (hinge and swing flipped), so both describe one physical door. `doorType` (`hinged`, `sliding`, `pocket`) is metadata; sliding and pocket doors have no swing. Walls are still drawn as zero-thickness lines; the building values are for later 3D / Home Assistant use.
 
+Entities (written by the *Entities* mode, positions in metres from the room's top-left corner, `facingDegrees` clockwise from up):
+```json
+{
+  "entitySettings": { "coordinates": "room", "gridStep": 0.1, "resize": "proportional" },
+  "entityPlacements": [
+    { "id": "living-ceiling-light", "type": "light", "roomId": "living", "position": [2.2, 1.3], "height": 2.2 },
+    { "id": "living-motion-sensor", "type": "motion-sensor", "roomId": "living", "position": [0.2, 1.1], "height": 2.1,
+      "facingDegrees": 90, "fieldOfViewDegrees": 100, "range": 3.5, "haEntityId": "binary_sensor.living_motion" },
+    { "id": "living-environment-sensor", "type": "environment-sensor", "roomId": "living", "position": [3.5, 0.2], "height": 1.5,
+      "measures": ["temperature", "humidity", "co2"] },
+    { "id": "bedroom-door-contact", "type": "door-contact", "connectorId": "bedroom-front-left-door" }
+  ]
+}
+```
+Types: `light`, `motion-sensor`, `environment-sensor`, `smoke-detector`, `water-leak` (room entities) and `door-contact`, `window-contact` (bound to a connector). `entitySettings.resize` is `proportional` (default) or `anchor` (keep the distance to a corner, optional per-entity `anchorCorner`). Files without these keys are unchanged.
+
 ## Documentation
-`CLAUDE.md` (rules, source map, how the embedded browser code works), `CHANGELOG.md`, and `docs/`: `V2.14-MAPPER.md`, `V2.15-FOUNDATION.md`, `V2.15-MOVE-MODES.md`, `V2.15-WALLS.md`, `V2.15-EDITING.md`, `V2.15-CONNECTORS.md`, `V2.15-UI.md`, `HANDOFF.md` (historical).
+`CLAUDE.md` (rules, source map, how the embedded browser code works), `CHANGELOG.md`, and `docs/`: `V2.14-MAPPER.md`, `V2.15-FOUNDATION.md`, `V2.15-MOVE-MODES.md`, `V2.15-WALLS.md`, `V2.15-EDITING.md`, `V2.15-CONNECTORS.md`, `V2.15-UI.md`, `V2.16-ENTITIES.md` (entity placement mode), `HANDOFF.md` (historical), `HANDOVER.md` (entity mode plan, now implemented except the Home Assistant entity source).
 
 ## Not in this beta
-Rectangular rooms only. L-shaped / polygon rooms are planned after tester feedback (design together with the requirements that come out of it). Packaging as a Home Assistant (HACS) panel versus a standalone tool is undecided.
+Rectangular rooms only. L-shaped / polygon rooms are planned after tester feedback (design together with the requirements that come out of it). Entity placement has no Home Assistant entity source yet (importing HA entities to bind, "not placed yet" list), one floor only. Packaging as a Home Assistant (HACS) panel versus a standalone tool is undecided.
