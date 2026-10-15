@@ -84,7 +84,18 @@ click('[data-ptype=lock]'); ptr('pointerdown', canvas, 4.1, 1.4); assert.equal(e
 click('[data-ptype=cover]'); ptr('pointerdown', canvas, 4.1, 1.4); assert.equal(ents().at(-1).id, 'a-right-door-cover');
 click('[data-ptype=cover]'); ptr('pointerdown', canvas, 4.1, 1.4); assert.match($('status').textContent, /already has a blind/); doc.dispatchEvent(Object.assign(new w.Event('keydown', { bubbles: true }), { key: 'Escape' }));
 click('[data-ptype=thermostat]'); ptr('pointerdown', canvas, 3, 1); assert.equal(ents().at(-1).height, 1.5);
+// 6f. coverage hints: room b has no motion sensor -> highlight, one-click fix + undo, ignore / restore, switch off / on
+click('[data-etab=list]');
+const hints = () => [...doc.querySelectorAll('#ent-hints-body [data-hint]')].map(n => n.dataset.hint);
+assert.deepEqual(hints(), ['no-motion|b']); assert.match($('ent-hints-sum').textContent, /\(1\)/);
+doc.querySelector('#ent-hints-body [data-hint]').click(); assert.ok(doc.querySelector('.ent-hint'), 'hint is highlighted on the plan');
+doc.querySelector('[data-hadd]').click(); assert.deepEqual([ents().at(-1).type, ents().at(-1).roomId], ['motion-sensor', 'b']); assert.deepEqual(hints(), []); assert.match($('ent-hints-body').textContent, /No gaps found/);
+$('undo').click(); assert.deepEqual(hints(), ['no-motion|b']);
+doc.querySelector('[data-hign]').click(); assert.deepEqual(hints(), []); assert.ok(doc.querySelector('[data-hreset]'));
+doc.querySelector('[data-hreset]').click(); assert.deepEqual(hints(), ['no-motion|b']);
+$('undo').click(); $('undo').click(); assert.equal(w.eval('(g.entitySettings||{}).ignoredHints'), undefined);
+for (const on of [false, true]) { $('ent-chk-motion').checked = on; $('ent-chk-motion').dispatchEvent(new w.Event('change', { bubbles: true })); assert.deepEqual(hints(), on ? ['no-motion|b'] : []); }
 // 7. save writes defaults; floor-plan mode again
-const saved = JSON.parse(w.eval('JSON.stringify(fillEntityDefaults(fillDefaults(g)))')); assert.deepEqual(saved.entitySettings, { coordinates: 'room', gridStep: 0.1, resize: 'anchor' });
+const saved = JSON.parse(w.eval('JSON.stringify(fillEntityDefaults(fillDefaults(g)))')); assert.deepEqual(saved.entitySettings, { coordinates: 'room', gridStep: 0.1, resize: 'anchor', checks: { motion: true, doorContact: true } });
 click('[data-app-btn=plan]'); assert.equal(doc.body.dataset.app, 'plan'); assert.equal(doc.querySelector('.entlayer'), null);
 console.log('entity smoke OK');

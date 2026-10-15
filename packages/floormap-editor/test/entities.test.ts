@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { entityCatalog, entityWorld, coverageSector, nearestAnchor, addEntity, moveEntity, updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, syncEntitySizes } from '../src/entities.js';
+import { entityCatalog, entityWorld, coverageSector, nearestAnchor, addEntity, moveEntity, updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, syncEntitySizes, coverageHints } from '../src/entities.js';
 import { removeRoom, removeConnector } from '../src/edit.js';
 
 const room = (id: string, x: number, y: number, connectors: any[] = [], w = 4, h = 3) => ({ id, name: id, sizeCategory: 'medium', connectors, layout: { x, y, width: w, height: h } });
@@ -165,7 +165,7 @@ describe('coordinates and defaults', () => {
   it('fillEntityDefaults: no entities -> unchanged; with entities -> settings + missing height/directional values, existing kept', () => {
     const plain = scene(); assert.deepEqual(fillEntityDefaults(plain), plain);
     const r = fillEntityDefaults(scene({ entityPlacements: [{ id: 'm', type: 'motion-sensor', roomId: 'a', position: [1, 1], range: 5 }, { id: 'l', type: 'light', roomId: 'a', position: [1, 1] }] }));
-    assert.deepEqual(r.entitySettings, { coordinates: 'room', gridStep: 0.1, resize: 'proportional' });
+    assert.deepEqual(r.entitySettings, { coordinates: 'room', gridStep: 0.1, resize: 'proportional', checks: { motion: true, doorContact: true } });
     assert.deepEqual(r.entityPlacements[0], { id: 'm', type: 'motion-sensor', roomId: 'a', position: [1, 1], range: 5, height: 2.1, facingDegrees: 0, fieldOfViewDegrees: 100 });
     assert.equal(r.entityPlacements[1].height, 2.2);
   });
@@ -300,6 +300,42 @@ describe('camera, thermostat, lock, blind / cover', () => {
   });
   it('nearestAnchor for cover: (1,0.2) -> window a-top-window, (4,2.1) -> door a-right-door', () => {
     assert.equal(nearestAnchor(scene(), 'cover', 1, 0.2)!.connectorId, 'a-top-window'); assert.equal(nearestAnchor(scene(), 'cover', 4, 2.1)!.connectorId, 'a-right-door');
+  });
+});
+
+describe('coverageHints (rooms without motion sensor, doors without contact)', () => {
+  const keys = (g: any) => coverageHints(g).map(h => h.key);
+  it('empty scene: door hint first (sorted), then rooms a and b; messages and one-click fixes', () => {
+    const h = coverageHints(scene());
+    assert.deepEqual(h.map(x => x.key), ['no-door-contact|a-right-door--b-left-door', 'no-motion|a', 'no-motion|b']);
+    assert.equal(h[0]!.message, 'Door between "a" and "b" has no contact.'); assert.deepEqual(h[0]!.fix, { type: 'door-contact', connectorId: 'a-right-door' });
+    assert.deepEqual(h[1]!.fix, { type: 'motion-sensor', roomId: 'a' }); assert.deepEqual(h[1]!.target, { roomId: 'a' });
+  });
+  it('a motion sensor in a clears only room a; a contact on the PARTNER end (b-left-door) clears the door', () => {
+    let g = addEntity({ graph: scene(), type: 'motion-sensor', roomId: 'a' }).graph;
+    assert.deepEqual(keys(g), ['no-door-contact|a-right-door--b-left-door', 'no-motion|b']);
+    g = addEntity({ graph: g, type: 'door-contact', connectorId: 'b-left-door' }).graph; assert.deepEqual(keys(g), ['no-motion|b']);
+  });
+  it('the Outside room and rooms without a layout are never flagged; an unpaired door gets its own hint', () => {
+    const g = scene(); g.rooms.push({ id: 'o', name: 'Outside', connectors: [], layout: { x: -9, y: -9, width: 30, height: 30 } }, { id: 'u', name: 'u', connectors: [] });
+    g.rooms[0].connectors.push({ id: 'a-front-door', roomId: 'a', side: 'left', type: 'door', offset: 1 });
+    assert.deepEqual(keys(g), ['no-door-contact|a-front-door', 'no-door-contact|a-right-door--b-left-door', 'no-motion|a', 'no-motion|b']);
+    assert.equal(coverageHints(g)[0]!.message, 'Door of "a" has no contact.');
+  });
+  it('checks switch each rule off; ignoredHints removes single hints', () => {
+    assert.deepEqual(keys(scene({ entitySettings: { checks: { motion: false } } })), ['no-door-contact|a-right-door--b-left-door']);
+    assert.deepEqual(keys(scene({ entitySettings: { checks: { doorContact: false } } })), ['no-motion|a', 'no-motion|b']);
+    assert.deepEqual(keys(scene({ entitySettings: { ignoredHints: ['no-motion|a'] } })), ['no-door-contact|a-right-door--b-left-door', 'no-motion|b']);
+  });
+  it('applying every fix (add motion sensor / door contact) leaves no hints', () => {
+    let g = scene();
+    for (const h of coverageHints(g)) g = addEntity({ graph: g, type: h.fix.type, roomId: h.fix.roomId, connectorId: h.fix.connectorId }).graph;
+    assert.deepEqual(ent(g).map(e => e.id), ['a-right-door-door-contact', 'a-motion-sensor', 'b-motion-sensor']); assert.deepEqual(coverageHints(g), []);
+  });
+  it('save fills missing checks without overriding set ones; embedded source matches Node', () => {
+    assert.deepEqual(fillEntityDefaults(scene({ entitySettings: { checks: { motion: false } } })).entitySettings.checks, { motion: false, doorContact: true });
+    const E: any = new Function(coverageHints.toString() + '\nreturn coverageHints;')();
+    assert.deepEqual(E(scene()), coverageHints(scene()));
   });
 });
 

@@ -261,11 +261,39 @@ export function syncEntitySizes(graph: any, prev: Record<string, number[]> | nul
   return { graph: g || graph, sizes, changed };
 }
 
+/**
+ * Coverage hints (not errors): rooms without a motion sensor and doors without a contact. Skips the `Outside` room and rooms without a layout.
+ * A door counts as covered when either end of its relationship has a door contact. Settings: `entitySettings.checks` ({ motion, doorContact }, both on by
+ * default) and `entitySettings.ignoredHints` (keys "code|id"). Each hint carries a one-click fix; sorted by key.
+ */
+export function coverageHints(graph: any): { key: string; code: string; message: string; target: { roomId?: string; connectorId?: string }; fix: { type: string; roomId?: string; connectorId?: string } }[] {
+  const out: any[] = [], S = graph.entitySettings || {}, checks = S.checks || {}, ign: string[] = S.ignoredHints || [], list: any[] = graph.entityPlacements || [];
+  const own = (id: string) => graph.rooms.find((x: any) => (x.connectors || []).some((p: any) => p.id === id));
+  if (checks.motion !== false) for (const r of graph.rooms) {
+    if (!r.layout || String(r.name).toLowerCase() === 'outside' || list.some(e => e.type === 'motion-sensor' && e.roomId === r.id)) continue;
+    out.push({ key: 'no-motion|' + r.id, code: 'no-motion', message: 'Room "' + r.name + '" has no motion sensor.', target: { roomId: r.id }, fix: { type: 'motion-sensor', roomId: r.id } });
+  }
+  if (checks.doorContact !== false) {
+    const seen: Record<string, boolean> = {};
+    for (const r of graph.rooms) for (const c of r.connectors || []) {
+      if (c.type !== 'door') continue;
+      const l = (graph.relationships || []).find((k: any) => k.connectorA === c.id || k.connectorB === c.id), ids: string[] = l ? [l.connectorA, l.connectorB] : [c.id], key = 'no-door-contact|' + (l ? l.id : c.id);
+      if (seen[key]) continue;
+      seen[key] = true;
+      if (list.some(e => e.type === 'door-contact' && ids.indexOf(e.connectorId) >= 0)) continue;
+      const names = ids.map(id => (own(id) || { name: '?' }).name), cid = ids.slice().sort()[0]!;
+      out.push({ key, code: 'no-door-contact', message: l ? 'Door between "' + names[0] + '" and "' + names[1] + '" has no contact.' : 'Door of "' + names[0] + '" has no contact.', target: { connectorId: cid }, fix: { type: 'door-contact', connectorId: cid } });
+    }
+  }
+  return out.filter(h => ign.indexOf(h.key) < 0).sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+}
+
 /** Copy with every entity default written out (settings, height, directional values). A graph without entities is returned unchanged (as a copy). */
 export function fillEntityDefaults(graph: any): any {
   const g: any = JSON.parse(JSON.stringify(graph));
   if (!g.entityPlacements && !g.entitySettings) return g;
   g.entitySettings = { coordinates: 'room', gridStep: 0.1, resize: 'proportional', ...(g.entitySettings || {}) };
+  g.entitySettings.checks = { motion: true, doorContact: true, ...(g.entitySettings.checks || {}) };
   const cat = entityCatalog();
   for (const e of g.entityPlacements || []) {
     const c = cat[e.type];

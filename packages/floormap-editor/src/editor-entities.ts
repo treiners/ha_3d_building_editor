@@ -33,7 +33,7 @@ export const entityCss =
   '.ent{cursor:grab}.ent circle{fill:#fff;stroke:#17202a;stroke-width:.04}.ent path{fill:none;stroke:#17202a;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ent.sel circle{stroke:#f97316;stroke-width:.07}.ent.bad circle{stroke:#dc2626}' +
   '.ent-label{font-size:.34px;text-anchor:middle;fill:#17202a;pointer-events:none;paint-order:stroke;stroke:#fff;stroke-width:.08}.ent-cone{fill:rgba(20,184,166,.14);stroke:#0d9488;stroke-width:.02;pointer-events:none}.ent-cone.sel{fill:rgba(20,184,166,.28);stroke-width:.04}' +
   '.ent-h{fill:#fff;stroke:#0d9488;stroke-width:.05;cursor:grab}.ent-hl{stroke:#0d9488;stroke-width:.03;stroke-dasharray:.1 .08;pointer-events:none}.ent-target{fill:rgba(249,115,22,.18);stroke:#f97316;stroke-width:.05;pointer-events:none}.ent-outside{fill:none;stroke:#94a3b8;stroke-dasharray:.2 .15;stroke-width:.04;pointer-events:none}' +
-  '.ent-ring{fill:none;stroke:#f97316;stroke-width:.05;stroke-dasharray:.1 .08;pointer-events:none}.entside [data-epane]{display:none}.entside[data-tab=place] [data-epane=place],.entside[data-tab=list] [data-epane=list]{display:block}' +
+  '.ent-hint{fill:rgba(249,115,22,.08);stroke:#f97316;stroke-width:.06;stroke-dasharray:.2 .12;pointer-events:none}.ehint{display:flex;gap:4px;align-items:center;font-size:12px;margin:3px 0;cursor:pointer}.ehint span{flex:1}.ehint.on{background:#fff1c9}.ehint button{margin:0;padding:0 6px}.ent-ring{fill:none;stroke:#f97316;stroke-width:.05;stroke-dasharray:.1 .08;pointer-events:none}.entside [data-epane]{display:none}.entside[data-tab=place] [data-epane=place],.entside[data-tab=list] [data-epane=list]{display:block}' +
   '.etable{width:100%;border-collapse:collapse;font-size:12px;margin:6px 0}.etable td,.etable th{padding:3px 4px;border-bottom:1px solid #e2e8f0;text-align:left}.etable tr[data-erow]{cursor:pointer}.etable tr.on{background:#fff1c9}.etable .w{color:#b91c1c}.efilters{display:flex;gap:6px}.efilters select{flex:1}.entside .ewarn[data-erow]{cursor:pointer}';
 
 export const entitySwitchHtml = '<div class="appsw"><button data-app-btn="plan" class="active">Floor plan</button><button data-app-btn="entities">Entities</button></div>';
@@ -42,10 +42,10 @@ const cat = entityCatalog();
 export const entitySideHtml =
   '<div class="entside" data-tab="place"><div class="entbanner">Layout locked: the floor plan is read-only in this mode.</div><div class="modes"><button data-etab="place" class="active">Place</button><button data-etab="list">List</button></div><div data-epane="place"><h2>Place</h2><div class="pal">' +
   Object.keys(cat).map(k => '<button data-ptype="' + k + '" title="Place a ' + cat[k].label.toLowerCase() + '"><svg class="ic" viewBox="0 0 24 24"><path d="' + ICONS[k] + '"/></svg> ' + cat[k].label + '</button>').join('') +
-  '</div><div id="ent-hint" class="mini"></div><label class="row"><input id="ent-cov" type="checkbox"> Show coverage of all sensors</label><label class="row">On room resize <select id="ent-resize"><option value="proportional">scale proportionally</option><option value="anchor">keep distance to corner</option></select></label></div><div data-epane="list"><h2>Entities</h2><div class="efilters"><select id="ent-f-room"></select><select id="ent-f-type"></select></div><div id="ent-list"></div><details id="ent-diag" class="card"><summary id="ent-diag-sum"></summary><div id="ent-diag-body"></div></details></div><div id="ent-inspector"></div><div id="ent-count" class="mini"></div></div>';
+  '</div><div id="ent-hint" class="mini"></div><label class="row"><input id="ent-cov" type="checkbox"> Show coverage of all sensors</label><label class="row">On room resize <select id="ent-resize"><option value="proportional">scale proportionally</option><option value="anchor">keep distance to corner</option></select></label></div><div data-epane="list"><h2>Entities</h2><div class="efilters"><select id="ent-f-room"></select><select id="ent-f-type"></select></div><div id="ent-list"></div><details id="ent-diag" class="card"><summary id="ent-diag-sum"></summary><div id="ent-diag-body"></div></details><details id="ent-hints" class="card" open><summary id="ent-hints-sum"></summary><label class="row"><input id="ent-chk-motion" type="checkbox"> Rooms without motion sensor</label><label class="row"><input id="ent-chk-door" type="checkbox"> Doors without contact</label><div id="ent-hints-body"></div></details></div><div id="ent-inspector"></div><div id="ent-count" class="mini"></div></div>';
 
 export const entityJs = `
-let appMode='plan',selE=null,placing=null,eact=null,entCov=false,entTab='place',fRoom='',fType='',entSizes=null;
+let appMode='plan',selE=null,placing=null,eact=null,entCov=false,entTab='place',fRoom='',fType='',entSizes=null,entHint=null;
 const ENT_ICONS=${JSON.stringify(ICONS)};
 const entEsc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'),entRd=v=>+(+v).toFixed(3);
 const entList=()=>g.entityPlacements||[],entGet=id=>entList().find(e=>e.id===id);
@@ -59,7 +59,7 @@ function entSetApp(m){appMode=m;document.body.dataset.app=m;for(const b of docum
 function entLayer(){
 if(appMode!=='entities')return'';
 if(selE&&!entGet(selE))selE=null;
-const cat=entityCatalog(),bad=new Set(validateEntities(g).map(i=>i.id));let ou='',cone='',mk='',hd='',tg='';
+const cat=entityCatalog(),bad=new Set(validateEntities(g).map(i=>i.id));let ou='',cone='',mk='',hd='',tg='',hl='';
 for(const r of g.rooms)if(r.layout&&r.name.toLowerCase()==='outside')ou+='<rect class="ent-outside" x="'+r.layout.x+'" y="'+r.layout.y+'" width="'+r.layout.width+'" height="'+r.layout.height+'"/>';
 for(const e of entList()){const w=entityWorld(g,e);if(!w)continue;const c=cat[e.type]||{},s=e.id===selE;
 if(c.directional&&(s||entCov)){const p=coverageSector(w.x,w.y,e.facingDegrees??0,e.fieldOfViewDegrees??100,e.range??3.5);cone+='<polygon class="ent-cone'+(s?' sel':'')+'" points="'+p.map(q=>q.join(',')).join(' ')+'"/>'}
@@ -68,7 +68,8 @@ if(s)mk+='<circle class="ent-ring" cx="'+w.x+'" cy="'+w.y+'" r=".42"/>';if(s)mk+
 if(s&&c.directional){const f=e.facingDegrees||0,fv=e.fieldOfViewDegrees||100,rg=e.range||3.5,pt=(a,d)=>[w.x+d*Math.sin(a*Math.PI/180),w.y-d*Math.cos(a*Math.PI/180)],hf=pt(f,Math.min(.6,rg*.6)),hr=pt(f,rg),hv=pt(f+fv/2,rg);
 hd+='<line class="ent-hl" x1="'+w.x+'" y1="'+w.y+'" x2="'+hr[0]+'" y2="'+hr[1]+'"/><circle class="ent-h" data-ehandle="facing" cx="'+hf[0]+'" cy="'+hf[1]+'" r=".12"><title>Facing</title></circle><circle class="ent-h" data-ehandle="range" cx="'+hr[0]+'" cy="'+hr[1]+'" r=".1"><title>Range</title></circle><circle class="ent-h" data-ehandle="fov" cx="'+hv[0]+'" cy="'+hv[1]+'" r=".1"><title>Field of view</title></circle>'}}
 if(placing&&cat[placing].anchor==='connector')for(const p of ports()){if(cat[placing].connectorTypes.indexOf(p.type)<0||entPartnerHas(placing,p.id))continue;const w=entityWorld(g,{connectorId:p.id});if(w)tg+='<circle class="ent-target" cx="'+w.x+'" cy="'+w.y+'" r=".34"/>'}
-return'<g class="entlayer">'+ou+cone+mk+hd+tg+'</g>'}
+if(entHint){const h=coverageHints(g).find(x=>x.key===entHint);if(!h)entHint=null;else if(h.target.roomId){const r=room(h.target.roomId);if(r&&r.layout)hl='<rect class="ent-hint" x="'+r.layout.x+'" y="'+r.layout.y+'" width="'+r.layout.width+'" height="'+r.layout.height+'"/>'}else{const w=entityWorld(g,{connectorId:h.target.connectorId});if(w)hl='<circle class="ent-hint" cx="'+w.x+'" cy="'+w.y+'" r=".42"/>'}}
+return'<g class="entlayer">'+ou+hl+cone+mk+hd+tg+'</g>'}
 function entParent(e){if(e.roomId){const r=room(e.roomId);return r?r.name:e.roomId+' (missing)'}const p=port(e.connectorId);return p?room(p.roomId).name+': '+p.side+' '+p.type:e.connectorId+' (missing)'}
 function entListPanel(){
 const cat=entityCatalog(),issues=validateEntities(g),bad=new Set(issues.map(i=>i.id)),own=e=>e.roomId||(port(e.connectorId)||{}).roomId,rooms=[...new Set(entList().map(own).filter(Boolean))];
@@ -79,7 +80,12 @@ const rows=entList().filter(e=>(!fRoom||own(e)===fRoom)&&(!fType||e.type===fType
 $('ent-list').innerHTML=rows.length?'<table class="etable"><tr><th>Name</th><th>Type</th><th>Parent</th><th>HA</th><th></th></tr>'+rows.map(e=>'<tr data-erow="'+entEsc(e.id)+'"'+(e.id===selE?' class="on"':'')+'><td>'+entEsc(e.name||e.id)+'</td><td>'+entEsc((cat[e.type]||{}).label||e.type)+'</td><td>'+entEsc(entParent(e))+'</td><td>'+entEsc(e.haEntityId||'')+'</td><td class="w">'+(bad.has(e.id)?'\\u26a0':'')+'</td></tr>').join('')+'</table>':'<div class="mini">No entities'+(entList().length?' match the filters':' yet')+'.</div>';
 $('ent-diag-sum').textContent='Diagnostics ('+issues.length+')';
 $('ent-diag-body').innerHTML=issues.length?issues.map(i=>'<div class="ewarn" data-erow="'+entEsc(i.id)+'">'+entEsc(i.id+': '+i.message)+'</div>').join(''):'<div class="mini">No problems found.</div>'}
-function entPanel(){entListPanel();$('ent-resize').value=(g.entitySettings&&g.entitySettings.resize)||'proportional';
+function entHintPanel(){
+const S=g.entitySettings||{},ch=S.checks||{},hs=coverageHints(g),ig=(S.ignoredHints||[]).length;
+$('ent-chk-motion').checked=ch.motion!==false;$('ent-chk-door').checked=ch.doorContact!==false;
+$('ent-hints-sum').textContent='Coverage hints ('+hs.length+')';
+$('ent-hints-body').innerHTML=(hs.map(h=>'<div class="ehint'+(h.key===entHint?' on':'')+'" data-hint="'+entEsc(h.key)+'"><span>'+entEsc(h.message)+'</span><button data-hadd="'+entEsc(h.key)+'" title="Add a '+entEsc(entityCatalog()[h.fix.type].label.toLowerCase())+'">+</button><button data-hign="'+entEsc(h.key)+'" title="Ignore this hint">\\u00d7</button></div>').join('')||'<div class="mini">No gaps found.</div>')+(ig?'<div class="mini"><a href="#" data-hreset="1">Restore '+ig+' ignored</a></div>':'')}
+function entPanel(){entListPanel();entHintPanel();$('ent-resize').value=(g.entitySettings&&g.entitySettings.resize)||'proportional';
 document.querySelectorAll('[data-ptype]').forEach(b=>b.classList.toggle('active',b.dataset.ptype===placing));
 const cat=entityCatalog();
 $('ent-hint').textContent=placing?(cat[placing].anchor==='room'?'Click inside a room to place the '+cat[placing].label.toLowerCase()+' (Alt = free position, Shift = keep placing, Esc = cancel).':'Click a highlighted '+cat[placing].connectorTypes.join(' or ')+' (Esc = cancel).'):'';
@@ -120,6 +126,13 @@ if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();entDelete();return}
 const d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
 if(d&&en.roomId){e.preventDefault();const w=entityWorld(g,en),s=entStep()*(e.shiftKey?5:1),hb=JSON.stringify(g);if(entApply(moveEntity({graph:g,id:en.id,x:w.x+d[0]*s,y:w.y+d[1]*s,step:entStep()}),hb,true))render()}});
 $('ent-inspector').addEventListener('change',e=>{const t=e.target.closest('[data-ef]');if(t)return entField(t);const m=e.target.closest('[data-em]'),en=m&&entGet(selE);if(en){const hb=JSON.stringify(g),f=m.dataset.em,v=[...document.querySelectorAll('[data-em='+f+']')].filter(x=>x.checked).map(x=>x.dataset.opt);entApply(updateEntity({graph:g,id:en.id,patch:{[f]:v}}),hb,true);render()}});
+function entCheck(k,v){const hb=JSON.stringify(g),S=g.entitySettings||{};g.entitySettings={...S,checks:{...(S.checks||{}),[k]:v}};rec(hb);render()}
+$('ent-chk-motion').onchange=e=>entCheck('motion',e.target.checked);$('ent-chk-door').onchange=e=>entCheck('doorContact',e.target.checked);
+$('ent-hints').addEventListener('click',e=>{const a=e.target.closest('[data-hadd]'),i=e.target.closest('[data-hign]'),r=e.target.closest('[data-hreset]'),w=e.target.closest('[data-hint]'),hb=JSON.stringify(g),S=g.entitySettings||{};
+if(r){e.preventDefault();g.entitySettings={...S,ignoredHints:[]};rec(hb);render();return}
+if(i){g.entitySettings={...S,ignoredHints:[...(S.ignoredHints||[]),i.dataset.hign]};rec(hb);render();return}
+if(a){const h=coverageHints(g).find(x=>x.key===a.dataset.hadd);if(h){entApply(h.fix.connectorId?addEntity({graph:g,type:h.fix.type,connectorId:h.fix.connectorId}):addEntity({graph:g,type:h.fix.type,roomId:h.fix.roomId}),hb);render()}return}
+if(w){entHint=entHint===w.dataset.hint?null:w.dataset.hint;render()}});
 $('ent-resize').onchange=e=>{const hb=JSON.stringify(g);g.entitySettings={...(g.entitySettings||{}),resize:e.target.value};rec(hb);render()};
 $('ent-inspector').addEventListener('click',e=>{if(e.target.closest('#ent-del'))entDelete()});
 document.querySelectorAll('[data-ptype]').forEach(b=>b.onclick=()=>{placing=placing===b.dataset.ptype?null:b.dataset.ptype;selE=null;document.body.dataset.placing=placing||'';render()});
