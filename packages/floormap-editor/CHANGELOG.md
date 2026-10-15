@@ -2,6 +2,11 @@
 
 This file covers the package `floormap-editor` (formerly `room-graph-mapping-v2.14-preview`) only; the suite timeline is in the root `CHANGELOG.md`.
 
+## Unreleased
+
+### Added
+- **Entity placement mode** (`Floor plan | Entities` switch): place lights, motion sensors and door contacts on the finished plan; the floor plan is read-only in this mode. New graph keys `entityPlacements` and `entitySettings` (both optional, `schemaVersion` stays `2.14`). Room-relative positions (metres from the room's top-left corner), `facingDegrees` clockwise from up, connector-bound door contacts. Place / List tabs, inspector, coverage cones with facing / range / field-of-view handles, diagnostics. Deleting a room or connector removes its entities. See `docs/V2.16-ENTITIES.md`.
+
 ## 3.0.0-beta.1 - 2026-10-13
 
 First beta of the floor-plan editor. The graph `schemaVersion` stays `2.14`; every new field is optional, so existing files load unchanged.

@@ -112,7 +112,10 @@ export function removeRoom(input: { graph: any; roomId: string }): EditResult {
   g.rooms = g.rooms.filter((x: any) => x.id !== r.id);
   if (g.joints) g.joints = g.joints.filter((j: any) => !goneIds.has(j.relationshipId));
   if (g.wallAlignments) g.wallAlignments = g.wallAlignments.map((a: any) => ({ ...a, roomIds: a.roomIds.filter((i: string) => i !== r.id) })).filter((a: any) => a.roomIds.length >= 2);
-  return { graph: g, ok: true, message: 'Deleted "' + r.name + '" with ' + own.size + ' connector(s) and ' + gone.length + ' relationship(s).' + (left ? ' ' + left + ' connector(s) of neighbours are now not connected.' : ''), id: r.id };
+  const ne = (g.entityPlacements || []).length;
+  if (ne) g.entityPlacements = g.entityPlacements.filter((e: any) => e.roomId !== r.id && !own.has(e.connectorId));
+  const nr = ne - (g.entityPlacements || []).length, ent = nr ? ' ' + nr + (nr === 1 ? ' entity' : ' entities') + ' removed.' : '';
+  return { graph: g, ok: true, message: 'Deleted "' + r.name + '" with ' + own.size + ' connector(s) and ' + gone.length + ' relationship(s).' + (left ? ' ' + left + ' connector(s) of neighbours are now not connected.' : '') + ent, id: r.id };
 }
 
 /** Removes a connector and its relationship; by default the partner connector in the other room as well (a door is one pair). */
@@ -127,5 +130,8 @@ export function removeConnector(input: { graph: any; connectorId: string; both?:
   for (const r of g.rooms) r.connectors = (r.connectors || []).filter((c: any) => !kill.has(c.id));
   g.relationships = g.relationships.filter((l: any) => !ids.has(l.id));
   if (g.joints) g.joints = g.joints.filter((j: any) => !ids.has(j.relationshipId));
-  return { graph: g, ok: true, message: 'Removed ' + kill.size + ' connector(s) and ' + ids.size + ' relationship(s).', id: input.connectorId };
+  const ne = (g.entityPlacements || []).length;
+  if (ne) g.entityPlacements = g.entityPlacements.filter((e: any) => !kill.has(e.connectorId));
+  const nr = ne - (g.entityPlacements || []).length;
+  return { graph: g, ok: true, message: 'Removed ' + kill.size + ' connector(s) and ' + ids.size + ' relationship(s).' + (nr ? ' ' + nr + (nr === 1 ? ' entity' : ' entities') + ' removed.' : ''), id: input.connectorId };
 }
