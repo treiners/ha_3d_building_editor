@@ -180,7 +180,7 @@ describe('nearestAnchor / catalogue', () => {
     assert.equal(nearestAnchor(scene(), 'door-contact', 1, 0.1), null); assert.equal(nearestAnchor(scene(), 'door-contact', 6, 2), null);
   });
   it('catalogue has the three MVP types; unknown type -> null', () => {
-    assert.deepEqual(Object.keys(entityCatalog()), ['light', 'motion-sensor', 'environment-sensor', 'smoke-detector', 'water-leak', 'door-contact', 'window-contact']); assert.equal(nearestAnchor(scene(), 'ufo', 1, 1), null);
+    assert.deepEqual(Object.keys(entityCatalog()), ['light', 'motion-sensor', 'camera', 'environment-sensor', 'smoke-detector', 'thermostat', 'water-leak', 'door-contact', 'window-contact', 'lock', 'cover']); assert.equal(nearestAnchor(scene(), 'ufo', 1, 1), null);
   });
 });
 
@@ -271,6 +271,35 @@ describe('more types and anchor resize mode', () => {
     assert.equal('anchorCorner' in ent(updateEntity({ graph: g, id: 'a-environment-sensor', patch: { anchorCorner: '' } }).graph)[0], false);
     const r = fillEntityDefaults(scene({ entityPlacements: [{ id: 'e', type: 'environment-sensor', roomId: 'a', position: [1, 1] }] }));
     assert.deepEqual([r.entitySettings.resize, r.entityPlacements[0].measures, r.entityPlacements[0].height], ['proportional', ['temperature', 'humidity'], 1.5]);
+  });
+});
+
+describe('camera, thermostat, lock, blind / cover', () => {
+  it('camera: directional defaults height 2.3, fov 90, range 8, facing 0; range 40 is clamped to 30; save fills missing values', () => {
+    const g = addEntity({ graph: scene(), type: 'camera', roomId: 'a' }).graph;
+    assert.deepEqual(ent(g)[0], { id: 'a-camera', type: 'camera', roomId: 'a', position: [2, 1.5], height: 2.3, facingDegrees: 0, fieldOfViewDegrees: 90, range: 8 });
+    assert.equal(ent(updateEntity({ graph: g, id: 'a-camera', patch: { range: 40 } }).graph)[0].range, 30);
+    assert.deepEqual(fillEntityDefaults(scene({ entityPlacements: [{ id: 'c', type: 'camera', roomId: 'a', position: [1, 1] }] })).entityPlacements[0], { id: 'c', type: 'camera', roomId: 'a', position: [1, 1], height: 2.3, facingDegrees: 0, fieldOfViewDegrees: 90, range: 8 });
+  });
+  it('thermostat: height 1.5, clamped to wallHeight 1 -> 1; no directional fields', () => {
+    assert.deepEqual(ent(addEntity({ graph: scene(), type: 'thermostat', roomId: 'a' }).graph)[0], { id: 'a-thermostat', type: 'thermostat', roomId: 'a', position: [2, 1.5], height: 1.5 });
+    assert.equal(ent(addEntity({ graph: scene({ buildingDefaults: { wallThickness: 0.16, wallHeight: 1, floorThickness: 0.12 } }), type: 'thermostat', roomId: 'a' }).graph)[0].height, 1);
+  });
+  it('lock: ok on a door (a-right-door-lock), refused on a window; a lock on each end of one door is double-contact', () => {
+    assert.equal(addEntity({ graph: scene(), type: 'lock', connectorId: 'a-right-door' }).id, 'a-right-door-lock');
+    assert.match(addEntity({ graph: scene(), type: 'lock', connectorId: 'a-top-window' }).message, /only fits door/);
+    assert.deepEqual(validateEntities(scene({ entityPlacements: [{ id: 'x', type: 'lock', connectorId: 'a-right-door' }, { id: 'y', type: 'lock', connectorId: 'b-left-door' }] })).map(i => i.id + ':' + i.code), ['x:double-contact', 'y:double-contact']);
+  });
+  it('cover: fits windows and doors; a window can have a contact AND a cover, but not two covers; type mismatch is not flagged', () => {
+    let g = addEntity({ graph: scene(), type: 'window-contact', connectorId: 'a-top-window' }).graph;
+    const r = addEntity({ graph: g, type: 'cover', connectorId: 'a-top-window' });
+    assert.equal(r.id, 'a-top-window-cover'); g = r.graph;
+    assert.match(addEntity({ graph: g, type: 'cover', connectorId: 'a-top-window' }).message, /already has/);
+    g = addEntity({ graph: g, type: 'cover', connectorId: 'a-right-door' }).graph;
+    assert.deepEqual(ent(g).map(e => e.id), ['a-top-window-window-contact', 'a-top-window-cover', 'a-right-door-cover']); assert.deepEqual(validateEntities(g), []);
+  });
+  it('nearestAnchor for cover: (1,0.2) -> window a-top-window, (4,2.1) -> door a-right-door', () => {
+    assert.equal(nearestAnchor(scene(), 'cover', 1, 0.2)!.connectorId, 'a-top-window'); assert.equal(nearestAnchor(scene(), 'cover', 4, 2.1)!.connectorId, 'a-right-door');
   });
 });
 

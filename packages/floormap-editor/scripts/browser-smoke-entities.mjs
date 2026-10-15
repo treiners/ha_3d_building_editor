@@ -76,6 +76,14 @@ assert.deepEqual(ents().find(e => e.type === 'environment-sensor').measures, ['t
 $('ent-resize').value = 'anchor'; $('ent-resize').dispatchEvent(new w.Event('change', { bubbles: true }));
 assert.equal(w.eval('g.entitySettings.resize'), 'anchor'); assert.ok(doc.querySelector('#ent-inspector [data-ef=anchorCorner]'), 'anchor corner field in anchor mode');
 $('undo').click(); assert.notEqual(w.eval('(g.entitySettings||{}).resize'), 'anchor'); $('redo').click(); assert.equal(w.eval('g.entitySettings.resize'), 'anchor');
+// 6e. camera (directional: cone + handles), lock and blind / cover on the door, thermostat
+click('[data-ptype=camera]'); ptr('pointerdown', canvas, 3, 2.5);
+const cam = ents().at(-1); assert.deepEqual([cam.type, cam.height, cam.fieldOfViewDegrees, cam.range], ['camera', 2.3, 90, 8]);
+assert.ok(doc.querySelector('.ent-cone.sel') && doc.querySelector('[data-ehandle=facing]'), 'camera shows cone and handles');
+click('[data-ptype=lock]'); ptr('pointerdown', canvas, 4.1, 1.4); assert.equal(ents().at(-1).id, 'a-right-door-lock');
+click('[data-ptype=cover]'); ptr('pointerdown', canvas, 4.1, 1.4); assert.equal(ents().at(-1).id, 'a-right-door-cover');
+click('[data-ptype=cover]'); ptr('pointerdown', canvas, 4.1, 1.4); assert.match($('status').textContent, /already has a blind/); doc.dispatchEvent(Object.assign(new w.Event('keydown', { bubbles: true }), { key: 'Escape' }));
+click('[data-ptype=thermostat]'); ptr('pointerdown', canvas, 3, 1); assert.equal(ents().at(-1).height, 1.5);
 // 7. save writes defaults; floor-plan mode again
 const saved = JSON.parse(w.eval('JSON.stringify(fillEntityDefaults(fillDefaults(g)))')); assert.deepEqual(saved.entitySettings, { coordinates: 'room', gridStep: 0.1, resize: 'anchor' });
 click('[data-app-btn=plan]'); assert.equal(doc.body.dataset.app, 'plan'); assert.equal(doc.querySelector('.entlayer'), null);

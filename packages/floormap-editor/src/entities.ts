@@ -13,11 +13,15 @@ export function entityCatalog(): Record<string, any> {
   return {
     light: { label: 'Light', anchor: 'room', height: 2.2, directional: false },
     'motion-sensor': { label: 'Motion sensor', anchor: 'room', height: 2.1, directional: true, facingDegrees: 0, fieldOfViewDegrees: 100, range: 3.5 },
+    camera: { label: 'Camera', anchor: 'room', height: 2.3, directional: true, facingDegrees: 0, fieldOfViewDegrees: 90, range: 8 },
     'environment-sensor': { label: 'Environment sensor', anchor: 'room', height: 1.5, directional: false, multi: { field: 'measures', options: ['temperature', 'humidity', 'co2', 'illuminance', 'pressure', 'voc'], default: ['temperature', 'humidity'] } },
     'smoke-detector': { label: 'Smoke / fire detector', anchor: 'room', height: 2.3, directional: false },
+    thermostat: { label: 'Thermostat / TRV', anchor: 'room', height: 1.5, directional: false },
     'water-leak': { label: 'Water leak sensor', anchor: 'room', height: 0.1, directional: false },
     'door-contact': { label: 'Door contact', anchor: 'connector', connectorTypes: ['door'], directional: false },
     'window-contact': { label: 'Window contact', anchor: 'connector', connectorTypes: ['window'], directional: false },
+    lock: { label: 'Lock', anchor: 'connector', connectorTypes: ['door'], directional: false },
+    cover: { label: 'Blind / cover', anchor: 'connector', connectorTypes: ['window', 'door'], directional: false },
   };
 }
 

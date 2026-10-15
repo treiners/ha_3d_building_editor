@@ -16,6 +16,10 @@ const ICONS: Record<string, string> = {
   'water-leak': 'M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z',
   'environment-sensor': 'M10 14.5V5a2 2 0 014 0v9.5a4 4 0 11-4 0z',
   'smoke-detector': 'M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8z',
+  camera: 'M4 7h11a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2zM17 11l5-3v8l-5-3',
+  thermostat: 'M12 4a8 8 0 100 16 8 8 0 000-16zM12 12l3-3',
+  lock: 'M6 11h12v9H6zM8 11V8a4 4 0 018 0v3',
+  cover: 'M4 4h16v4H4zM4 11h16M4 14h16M4 17h16M12 17v3',
 };
 
 export const entityCss =
@@ -78,7 +82,7 @@ $('ent-diag-body').innerHTML=issues.length?issues.map(i=>'<div class="ewarn" dat
 function entPanel(){entListPanel();$('ent-resize').value=(g.entitySettings&&g.entitySettings.resize)||'proportional';
 document.querySelectorAll('[data-ptype]').forEach(b=>b.classList.toggle('active',b.dataset.ptype===placing));
 const cat=entityCatalog();
-$('ent-hint').textContent=placing?(cat[placing].anchor==='room'?'Click inside a room to place the '+cat[placing].label.toLowerCase()+' (Alt = free position, Shift = keep placing, Esc = cancel).':'Click a highlighted '+cat[placing].connectorTypes[0]+' (Esc = cancel).'):'';
+$('ent-hint').textContent=placing?(cat[placing].anchor==='room'?'Click inside a room to place the '+cat[placing].label.toLowerCase()+' (Alt = free position, Shift = keep placing, Esc = cancel).':'Click a highlighted '+cat[placing].connectorTypes.join(' or ')+' (Esc = cancel).'):'';
 const n=entList().length;$('ent-count').textContent=n+(n===1?' entity':' entities')+' placed';
 const el=$('ent-inspector'),e=entGet(selE);
 if(!e){el.innerHTML='';return}
@@ -93,8 +97,8 @@ if(k==='x'||k==='y')patch.position=[q('x'),q('y')];else if(k==='name'||k==='id'|
 const r=updateEntity({graph:g,id:e.id,patch});if(entApply(r,hb))selE=r.id;render()}
 function entDelete(){const hb=JSON.stringify(g);if(entApply(removeEntity({graph:g,id:selE}),hb,true)){selE=null;render()}}
 function entPlace(P,e){const t=placing,hb=JSON.stringify(g),a=nearestAnchor(g,t,P.x,P.y,.8);
-if(!a){entMsg('Click a highlighted '+entityCatalog()[t].connectorTypes[0]+'.');return}
-let res;if(a.connectorId){if(entPartnerHas(t,a.connectorId)){entMsg('This '+entityCatalog()[t].connectorTypes[0]+' already has a '+entityCatalog()[t].label.toLowerCase()+'.');return}res=addEntity({graph:g,type:t,connectorId:a.connectorId})}else res=addEntity({graph:g,type:t,roomId:a.roomId,at:P,step:e.altKey?0:entStep()});
+if(!a){entMsg('Click a highlighted '+entityCatalog()[t].connectorTypes.join(' or ')+'.');return}
+let res;if(a.connectorId){if(entPartnerHas(t,a.connectorId)){entMsg('This '+entityCatalog()[t].connectorTypes.join(' or ')+' already has a '+entityCatalog()[t].label.toLowerCase()+'.');return}res=addEntity({graph:g,type:t,connectorId:a.connectorId})}else res=addEntity({graph:g,type:t,roomId:a.roomId,at:P,step:e.altKey?0:entStep()});
 if(entApply(res,hb)&&!e.shiftKey)placing=null;document.body.dataset.placing=placing||'';render()}
 function entDown(e){const h=e.target.closest('[data-ehandle]'),n=e.target.closest('[data-ent]');
 if(h&&selE){eact={kind:'handle',h:h.dataset.ehandle,pid:e.pointerId,before:JSON.stringify(g)};svg.setPointerCapture(e.pointerId);return}

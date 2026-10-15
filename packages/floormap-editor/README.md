@@ -20,7 +20,7 @@ Open `examples/room-graph_mapping.html` in a browser. Optional end-to-end checks
 - **Connectors:** table of all connectors, width, door type, door swing (hinge, swing side with room names, open angle, drag handle on the plan), window sill / head height, optional width bars on the plan.
 - **Building:** wall thickness, wall height, floor thickness.
 - **Layout of the UI:** toolbar above the plan (undo / redo, Map / Close gaps / Fit, tool, move mode, zoom, grid, view, load / save), tabs *Layout | Connectors | Building*, an inspector for the selected room or connector, a status bar. A *Classic layout* checkbox shows the old stacked sidebar for comparison.
-- **Entity placement mode** (`Floor plan | Entities` switch at the top of the sidebar): place lights, motion sensors, environment sensors (temperature, humidity, co2, ...), smoke / fire detectors, water leak sensors and door / window contacts on the finished plan, as the link to Home Assistant. The floor plan is read-only in this mode. Entities are stored relative to their room and follow it when it is moved or resized (proportionally, or keeping the distance to a corner, selectable). Motion sensors show a coverage cone with handles for facing, range and field of view. Place and List tabs, inspector, diagnostics. See `docs/V2.16-ENTITIES.md`.
+- **Entity placement mode** (`Floor plan | Entities` switch at the top of the sidebar): place lights, motion sensors, cameras, environment sensors (temperature, humidity, co2, ...), smoke / fire detectors, thermostats, water leak sensors, door / window contacts, locks and blinds on the finished plan, as the link to Home Assistant. The floor plan is read-only in this mode. Entities are stored relative to their room and follow it when it is moved or resized (proportionally, or keeping the distance to a corner, selectable). Motion sensors show a coverage cone with handles for facing, range and field of view. Place and List tabs, inspector, diagnostics. See `docs/V2.16-ENTITIES.md`.
 
 ## File format additions (all optional)
 *Save graph* writes every default explicitly:
@@ -51,7 +51,7 @@ Entities (written by the *Entities* mode, positions in metres from the room's to
   ]
 }
 ```
-Types: `light`, `motion-sensor`, `environment-sensor`, `smoke-detector`, `water-leak` (room entities) and `door-contact`, `window-contact` (bound to a connector). `entitySettings.resize` is `proportional` (default) or `anchor` (keep the distance to a corner, optional per-entity `anchorCorner`). Files without these keys are unchanged.
+Types: `light`, `motion-sensor`, `camera`, `environment-sensor`, `smoke-detector`, `thermostat`, `water-leak` (room entities) and `door-contact`, `window-contact`, `lock`, `cover` (bound to a connector). `entitySettings.resize` is `proportional` (default) or `anchor` (keep the distance to a corner, optional per-entity `anchorCorner`). Files without these keys are unchanged.
 
 ## Documentation
 `CLAUDE.md` (rules, source map, how the embedded browser code works), `CHANGELOG.md`, and `docs/`: `V2.14-MAPPER.md`, `V2.15-FOUNDATION.md`, `V2.15-MOVE-MODES.md`, `V2.15-WALLS.md`, `V2.15-EDITING.md`, `V2.15-CONNECTORS.md`, `V2.15-UI.md`, `V2.16-ENTITIES.md` (entity placement mode), `HANDOFF.md` (historical), `HANDOVER.md` (entity mode plan, now implemented except the Home Assistant entity source).
