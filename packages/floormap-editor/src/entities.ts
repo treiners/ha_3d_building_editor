@@ -3,8 +3,7 @@
  * `entityPlacements`. Every mutating function returns a NEW graph (the input is never mutated).
  * Positions are room-relative: metres from the room's top-left corner, x right, y down. `facingDegrees` is clockwise
  * from "up" on the plan (0 = up/-y, 90 = right), direction vector (sin a, -cos a).
- * Embedded into the editor HTML with toString(): no imports, helpers live inside the functions; the only sibling
- * global is `entityCatalog` (used by addEntity, updateEntity, validateEntities, nearestAnchor, fillEntityDefaults).
+ * Embedded into the editor HTML with toString(): no imports, helpers live inside the functions; sibling globals (all embedded together): `entityCatalog`, `entityWorld`, `updateEntity`.
  */
 export interface EntityResult { graph: any; ok: boolean; message: string; id: string }
 
@@ -259,6 +258,116 @@ export function syncEntitySizes(graph: any, prev: Record<string, number[]> | nul
     changed++;
   });
   return { graph: g || graph, sizes, changed };
+}
+
+/** Ids of the entities whose world point lies inside the box (inclusive, corners in any order), in list order. Used by the selection rectangle and Ctrl+A. */
+export function entitiesInBox(graph: any, x0: number, y0: number, x1: number, y1: number): string[] {
+  const lx = Math.min(x0, x1) - 1e-6, hx = Math.max(x0, x1) + 1e-6, ly = Math.min(y0, y1) - 1e-6, hy = Math.max(y0, y1) + 1e-6;
+  return (graph.entityPlacements || []).filter((e: any) => { const w = entityWorld(graph, e); return !!w && w.x >= lx && w.x <= hx && w.y >= ly && w.y <= hy; }).map((e: any) => e.id);
+}
+
+/** Moves several room-anchored entities by the same world offset. Each lands in the room under its new point (re-parent) or, outside every room, stays in its own room (clamped). Connector entities are skipped. */
+export function moveEntities(input: { graph: any; ids: string[]; dx: number; dy: number }): EntityResult {
+  const g: any = JSON.parse(JSON.stringify(input.graph)), rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0;
+  let n = 0;
+  for (const e of g.entityPlacements || []) {
+    if (input.ids.indexOf(e.id) < 0 || !e.roomId) continue;
+    const w = entityWorld(g, e);
+    if (!w) continue;
+    const x = w.x + input.dx, y = w.y + input.dy;
+    let best: any = null, ba = Infinity;
+    for (const q of g.rooms) {
+      const L = q.layout;
+      if (!L || x < L.x - 1e-6 || x > L.x + L.width + 1e-6 || y < L.y - 1e-6 || y > L.y + L.height + 1e-6) continue;
+      const a = L.width * L.height;
+      if (a < ba - 1e-9 || (Math.abs(a - ba) <= 1e-9 && q.id < best.id)) { best = q; ba = a; }
+    }
+    const r = best || g.rooms.find((q: any) => q.id === e.roomId);
+    if (!r || !r.layout) continue;
+    e.roomId = r.id;
+    e.position = [rnd(Math.max(0, Math.min(r.layout.width, x - r.layout.x))), rnd(Math.max(0, Math.min(r.layout.height, y - r.layout.y)))];
+    n++;
+  }
+  return n ? { graph: g, ok: true, message: 'Moved ' + n + (n === 1 ? ' entity.' : ' entities.'), id: '' } : { graph: input.graph, ok: false, message: 'Nothing to move.', id: '' };
+}
+
+/** Removes several entities at once. */
+export function removeEntities(input: { graph: any; ids: string[] }): EntityResult {
+  const g: any = JSON.parse(JSON.stringify(input.graph)), list: any[] = g.entityPlacements || [];
+  const gone = list.filter(e => input.ids.indexOf(e.id) >= 0);
+  if (!gone.length) return { graph: input.graph, ok: false, message: 'No such entity.', id: '' };
+  g.entityPlacements = list.filter(e => input.ids.indexOf(e.id) < 0);
+  return { graph: g, ok: true, message: gone.length === 1 ? 'Removed "' + gone[0].id + '".' : 'Removed ' + gone.length + ' entities.', id: '' };
+}
+
+/**
+ * Pastes copies of room-anchored entities. `items` = the clipboard ([{ entity, x, y }] with the world point at copy time); every copy lands at (x + dx, y + dy)
+ * in the room under that point (or, outside every room, in its original room, clamped), snapped to `step`. Ids: trailing "-N" stripped, then the next free "-N".
+ * Connector-bound entities are skipped. Returns the new ids.
+ */
+export function pasteEntities(input: { graph: any; items: { entity: any; x: number; y: number }[]; dx: number; dy: number; step?: number }): EntityResult & { ids: string[] } {
+  const g: any = JSON.parse(JSON.stringify(input.graph)), list: any[] = g.entityPlacements || (g.entityPlacements = []), ids: string[] = [];
+  const rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0, st = input.step && input.step > 0 ? input.step : 0, sn = (v: number) => (st ? Math.round(v / st) * st : v);
+  for (const it of input.items) {
+    const src = it.entity;
+    if (!src || !src.roomId) continue;
+    const x = it.x + input.dx, y = it.y + input.dy;
+    let best: any = null, ba = Infinity;
+    for (const q of g.rooms) {
+      const L = q.layout;
+      if (!L || x < L.x - 1e-6 || x > L.x + L.width + 1e-6 || y < L.y - 1e-6 || y > L.y + L.height + 1e-6) continue;
+      const a = L.width * L.height;
+      if (a < ba - 1e-9 || (Math.abs(a - ba) <= 1e-9 && q.id < best.id)) { best = q; ba = a; }
+    }
+    const r = best || g.rooms.find((q: any) => q.id === src.roomId);
+    if (!r || !r.layout) continue;
+    const base = String(src.id).replace(/-\d+$/, '') || 'entity';
+    let id = base, n = 2;
+    while (list.some(o => o.id === id)) id = base + '-' + n++;
+    const e = JSON.parse(JSON.stringify(src)), ordered: any = { id };
+    e.roomId = r.id;
+    e.position = [rnd(Math.max(0, Math.min(r.layout.width, sn(x - r.layout.x)))), rnd(Math.max(0, Math.min(r.layout.height, sn(y - r.layout.y))))];
+    for (const k of Object.keys(e)) if (!(k in ordered)) ordered[k] = e[k];
+    list.push(ordered);
+    ids.push(id);
+  }
+  if (!ids.length) return { graph: input.graph, ok: false, message: 'Nothing to paste.', id: '', ids };
+  return { graph: g, ok: true, message: 'Pasted ' + ids.length + (ids.length === 1 ? ' entity.' : ' entities.'), id: ids[0]!, ids };
+}
+
+/**
+ * Aligns or distributes room-anchored entities by their world points. Modes: left, hcenter, right, top, vcenter, bottom (to the extreme / centre of the selection),
+ * hdist, vdist (equal spacing between the two outermost, needs 3). Entities stay in their own room (clamped, never re-parented). Connector entities are ignored.
+ */
+export function alignEntities(input: { graph: any; ids: string[]; mode: string }): EntityResult {
+  const g: any = JSON.parse(JSON.stringify(input.graph)), rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0;
+  const fail = (m: string): EntityResult => ({ graph: input.graph, ok: false, message: m, id: '' });
+  const items: { e: any; r: any; x: number; y: number }[] = [];
+  for (const e of g.entityPlacements || []) {
+    if (input.ids.indexOf(e.id) < 0 || !e.roomId) continue;
+    const w = entityWorld(g, e), r = g.rooms.find((q: any) => q.id === e.roomId);
+    if (w && r && r.layout) items.push({ e, r, x: w.x, y: w.y });
+  }
+  const horiz = ['left', 'hcenter', 'right', 'hdist'].indexOf(input.mode) >= 0, vert = ['top', 'vcenter', 'bottom', 'vdist'].indexOf(input.mode) >= 0, dist = input.mode === 'hdist' || input.mode === 'vdist';
+  if (!horiz && !vert) return fail('Unknown align mode.');
+  if (items.length < (dist ? 3 : 2)) return fail(dist ? 'Distribute needs at least 3 entities in rooms.' : 'Align needs at least 2 entities in rooms.');
+  const key: 'x' | 'y' = horiz ? 'x' : 'y', vals = items.map(i => i[key]), lo = Math.min(...vals), hi = Math.max(...vals), target = new Map<any, number>();
+  if (dist) items.slice().sort((a, b) => a[key] - b[key] || (a.e.id < b.e.id ? -1 : 1)).forEach((it, i, s) => target.set(it, lo + ((hi - lo) * i) / (s.length - 1)));
+  else for (const it of items) target.set(it, input.mode === 'left' || input.mode === 'top' ? lo : input.mode === 'right' || input.mode === 'bottom' ? hi : (lo + hi) / 2);
+  for (const it of items) {
+    const t = target.get(it)!, L = it.r.layout, p = it.e.position;
+    it.e.position = horiz ? [rnd(Math.max(0, Math.min(L.width, t - L.x))), p[1]] : [p[0], rnd(Math.max(0, Math.min(L.height, t - L.y)))];
+  }
+  return { graph: g, ok: true, message: (dist ? 'Distributed ' : 'Aligned ') + items.length + ' entities.', id: '' };
+}
+
+/** Applies the shared fields of a multi-selection (height, facingDegrees, fieldOfViewDegrees, range) to every entity it fits; other patch keys are ignored. */
+export function updateEntities(input: { graph: any; ids: string[]; patch: any }): EntityResult {
+  const allowed = ['height', 'facingDegrees', 'fieldOfViewDegrees', 'range'], patch: any = {}, src = input.patch || {};
+  for (const k of allowed) if (k in src) patch[k] = src[k];
+  let g = input.graph, n = 0;
+  for (const id of input.ids) { const r = updateEntity({ graph: g, id, patch }); if (r.ok) { g = r.graph; n++; } }
+  return n ? { graph: g, ok: true, message: 'Updated ' + n + (n === 1 ? ' entity.' : ' entities.'), id: '' } : { graph: input.graph, ok: false, message: 'Nothing to update.', id: '' };
 }
 
 /**

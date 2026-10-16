@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { entityCatalog, entityWorld, coverageSector, nearestAnchor, addEntity, moveEntity, updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, syncEntitySizes, coverageHints } from '../src/entities.js';
+import { entityCatalog, entityWorld, coverageSector, nearestAnchor, addEntity, moveEntity, updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, syncEntitySizes, coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities } from '../src/entities.js';
 import { removeRoom, removeConnector } from '../src/edit.js';
 
 const room = (id: string, x: number, y: number, connectors: any[] = [], w = 4, h = 3) => ({ id, name: id, sizeCategory: 'medium', connectors, layout: { x, y, width: w, height: h } });
@@ -339,6 +339,71 @@ describe('coverageHints (rooms without motion sensor, doors without contact)', (
   });
 });
 
+describe('multi-select helpers: box, move, remove, paste, align / distribute, shared fields', () => {
+  const lightsIn = (pos: number[][], roomId = 'a') => pos.reduce((g, p) => addEntity({ graph: g, type: 'light', roomId, position: p }).graph, scene());
+  const pos = (g: any, id: string) => ent(g).find(e => e.id === id).position;
+  it('entitiesInBox: box (0,0)-(4,3) holds a-light (1,1) and the contact on the wall (4,2); swapped corners (8,3)-(4.5,0) hold only b-light (5,1)', () => {
+    let g = addEntity({ graph: scene(), type: 'light', roomId: 'a', position: [1, 1] }).graph;
+    g = addEntity({ graph: g, type: 'light', roomId: 'b', position: [1, 1] }).graph; g = addEntity({ graph: g, type: 'door-contact', connectorId: 'a-right-door' }).graph;
+    assert.deepEqual(entitiesInBox(g, 0, 0, 4, 3), ['a-light', 'a-right-door-door-contact']); assert.deepEqual(entitiesInBox(g, 8, 3, 4.5, 0), ['b-light']);
+  });
+  it('moveEntities by (4, 0.5): world (1,1)->(5,1.5) and (2,1)->(6,1.5) land in room b at [1,1.5] and [2,1.5]; the contact is skipped; by (20,0) they stay in a, clamped to [4,1]', () => {
+    const g = addEntity({ graph: lightsIn([[1, 1], [2, 1]]), type: 'door-contact', connectorId: 'a-right-door' }).graph, ids = ['a-light', 'a-light-2', 'a-right-door-door-contact'];
+    const r = moveEntities({ graph: g, ids, dx: 4, dy: 0.5 });
+    assert.equal(r.message, 'Moved 2 entities.'); assert.deepEqual([pos(r.graph, 'a-light'), pos(r.graph, 'a-light-2')], [[1, 1.5], [2, 1.5]]); assert.deepEqual(ent(r.graph).map(e => e.roomId), ['b', 'b', undefined]);
+    const far = moveEntities({ graph: g, ids, dx: 20, dy: 0 }).graph; assert.deepEqual([pos(far, 'a-light'), pos(far, 'a-light-2'), ent(far)[0].roomId], [[4, 1], [4, 1], 'a']);
+    assert.equal(moveEntities({ graph: g, ids: ['a-right-door-door-contact'], dx: 1, dy: 0 }).ok, false);
+  });
+  it('removeEntities: one id -> Removed "a-light"., two -> Removed 2 entities., unknown ids fail', () => {
+    const g = lightsIn([[1, 1], [2, 1]]);
+    assert.equal(removeEntities({ graph: g, ids: ['a-light', 'zz'] }).message, 'Removed "a-light".'); assert.equal(removeEntities({ graph: g, ids: ['a-light', 'a-light-2'] }).message, 'Removed 2 entities.');
+    assert.equal(ent(removeEntities({ graph: g, ids: ['a-light'] }).graph).length, 1); assert.equal(removeEntities({ graph: g, ids: ['zz'] }).ok, false);
+  });
+  it('pasteEntities dx=4: copies of (1,1) and (2,1) land in b at [1,1] and [2,1]; ids a-light-2 then a-light-3 (trailing -N stripped); originals untouched', () => {
+    const g = lightsIn([[1, 1]]), a = ent(g)[0], items = [{ entity: a, x: 1, y: 1 }, { entity: { ...a, id: 'a-light-2' }, x: 2, y: 1 }];
+    const r = pasteEntities({ graph: g, items, dx: 4, dy: 0, step: 0.1 });
+    assert.deepEqual(r.ids, ['a-light-2', 'a-light-3']); assert.deepEqual(ent(r.graph).map(e => [e.id, e.roomId, e.position]), [['a-light', 'a', [1, 1]], ['a-light-2', 'b', [1, 1]], ['a-light-3', 'b', [2, 1]]]);
+    assert.equal(ent(g).length, 1); assert.equal(r.message, 'Pasted 2 entities.');
+  });
+  it('pasteEntities: outside every room the copy stays in its original room, clamped ([1,1] + 50 -> [4,1]); connector-bound items are skipped', () => {
+    const g = lightsIn([[1, 1]]), r = pasteEntities({ graph: g, items: [{ entity: ent(g)[0], x: 1, y: 1 }], dx: 50, dy: 0, step: 0.1 });
+    assert.deepEqual([ent(r.graph)[1].roomId, ent(r.graph)[1].position], ['a', [4, 1]]);
+    assert.equal(pasteEntities({ graph: g, items: [{ entity: { id: 'c', type: 'door-contact', connectorId: 'a-right-door' }, x: 4, y: 2 }], dx: 1, dy: 0 }).ok, false);
+  });
+  it('align on lights [0.5,2.5] [1.5,0.5] [3,1]: left x=0.5, right x=3, hcenter x=(0.5+3)/2=1.75, top y=0.5, bottom y=2.5, vcenter y=(0.5+2.5)/2=1.5', () => {
+    const g = lightsIn([[0.5, 2.5], [1.5, 0.5], [3, 1]]), ids = ['a-light', 'a-light-2', 'a-light-3'];
+    const run = (mode: string) => ent(alignEntities({ graph: g, ids, mode }).graph).map(e => e.position);
+    assert.deepEqual(run('left'), [[0.5, 2.5], [0.5, 0.5], [0.5, 1]]); assert.deepEqual(run('right'), [[3, 2.5], [3, 0.5], [3, 1]]); assert.deepEqual(run('hcenter'), [[1.75, 2.5], [1.75, 0.5], [1.75, 1]]);
+    assert.deepEqual(run('top'), [[0.5, 0.5], [1.5, 0.5], [3, 0.5]]); assert.deepEqual(run('bottom'), [[0.5, 2.5], [1.5, 2.5], [3, 2.5]]); assert.deepEqual(run('vcenter'), [[0.5, 1.5], [1.5, 1.5], [3, 1.5]]);
+  });
+  it('distribute: hdist keeps x 0.5 and 3, middle -> 0.5+(3-0.5)/2 = 1.75; vdist keeps y 0.5 and 2.5, the y=1 light -> 0.5+(2.5-0.5)/2 = 1.5', () => {
+    const g = lightsIn([[0.5, 2.5], [1.5, 0.5], [3, 1]]), ids = ['a-light', 'a-light-2', 'a-light-3'];
+    assert.deepEqual(ent(alignEntities({ graph: g, ids, mode: 'hdist' }).graph).map(e => e.position), [[0.5, 2.5], [1.75, 0.5], [3, 1]]);
+    assert.deepEqual(ent(alignEntities({ graph: g, ids, mode: 'vdist' }).graph).map(e => e.position), [[0.5, 2.5], [1.5, 0.5], [3, 1.5]]);
+  });
+  it('align / distribute refuse too few entities and unknown modes; across rooms the entity stays in its room (clamped, not re-parented)', () => {
+    const g = lightsIn([[1, 1], [2, 2]]);
+    assert.match(alignEntities({ graph: g, ids: ['a-light'], mode: 'left' }).message, /at least 2/); assert.match(alignEntities({ graph: g, ids: ['a-light', 'a-light-2'], mode: 'hdist' }).message, /at least 3/); assert.equal(alignEntities({ graph: g, ids: ['a-light', 'a-light-2'], mode: 'diag' }).ok, false);
+    let m = addEntity({ graph: scene(), type: 'light', roomId: 'a', position: [3.5, 1] }).graph; m = addEntity({ graph: m, type: 'light', roomId: 'b', position: [1, 1] }).graph;
+    const r = alignEntities({ graph: m, ids: ['a-light', 'b-light'], mode: 'left' }).graph;
+    assert.deepEqual(ent(r).map(e => [e.roomId, e.position]), [['a', [3.5, 1]], ['b', [0, 1]]]);
+  });
+  it('updateEntities: range 5 and height 1 reach the motion sensor and the camera, the light only gets the height, the contact is untouched; name / id keys are ignored', () => {
+    let g = addEntity({ graph: scene(), type: 'motion-sensor', roomId: 'a' }).graph; for (const t of ['camera', 'light']) g = addEntity({ graph: g, type: t, roomId: 'a' }).graph;
+    g = addEntity({ graph: g, type: 'door-contact', connectorId: 'a-right-door' }).graph;
+    const r = updateEntities({ graph: g, ids: ent(g).map(e => e.id), patch: { range: 5, height: 1, name: 'x', id: 'z' } }).graph;
+    assert.deepEqual(ent(r).map(e => [e.id, e.range, e.height, e.name]), [['a-motion-sensor', 5, 1, undefined], ['a-camera', 5, 1, undefined], ['a-light', undefined, 1, undefined], ['a-right-door-door-contact', undefined, undefined, undefined]]);
+  });
+  it('embedded source matches Node for all of them', () => {
+    const fns = [entityCatalog, entityWorld, updateEntity, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities];
+    const E: any = new Function(fns.map(f => f.toString()).join('\n') + '\nreturn {' + fns.map(f => f.name).join(',') + '};')();
+    const g = lightsIn([[0.5, 2.5], [1.5, 0.5], [3, 1]]), ids = ['a-light', 'a-light-2', 'a-light-3'], items = [{ entity: ent(g)[0], x: 0.5, y: 2.5 }];
+    assert.deepEqual(E.entitiesInBox(g, 0, 0, 2, 3), entitiesInBox(g, 0, 0, 2, 3)); assert.deepEqual(E.moveEntities({ graph: g, ids, dx: 4, dy: 0 }), moveEntities({ graph: g, ids, dx: 4, dy: 0 }));
+    assert.deepEqual(E.alignEntities({ graph: g, ids, mode: 'hdist' }), alignEntities({ graph: g, ids, mode: 'hdist' })); assert.deepEqual(E.pasteEntities({ graph: g, items, dx: 4, dy: 0, step: 0.1 }), pasteEntities({ graph: g, items, dx: 4, dy: 0, step: 0.1 }));
+    assert.deepEqual(E.removeEntities({ graph: g, ids: ['a-light'] }), removeEntities({ graph: g, ids: ['a-light'] })); assert.deepEqual(E.updateEntities({ graph: g, ids, patch: { height: 1 } }), updateEntities({ graph: g, ids, patch: { height: 1 } }));
+  });
+});
+
 describe('entity mode shell (HTML structure)', () => {
   it('editor HTML: switch + sidebar block present once, ids unique, entity functions embedded, CSS scoped (no bare element selectors)', async () => {
     const { editorHtml } = await import('../src/editor.js');
@@ -355,8 +420,8 @@ describe('entity mode shell (HTML structure)', () => {
     for (const s of selectors) assert.ok(/^(\.|body\[)/.test(s.trim()), 'unscoped selector: ' + s);
     assert.doesNotMatch(entityCss, /(^|[}\s,])svg\s*\{/);
   });
-  it('old editor behaviour is guarded: the floor-plan pointerdown returns early only in entity mode', async () => {
+  it('old editor behaviour is guarded: the floor-plan pointerdown returns early in entity mode and while an opening type is armed', async () => {
     const { editorHtml } = await import('../src/editor.js');
-    assert.ok(editorHtml(scene()).includes("svg.addEventListener('pointerdown',e=>{if(appMode==='entities')return;"));
+    assert.ok(editorHtml(scene()).includes("svg.addEventListener('pointerdown',e=>{if(appMode==='entities'||addOp)return;"));
   });
 });

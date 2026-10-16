@@ -22,7 +22,7 @@ export function connectRooms(input: { graph: any; roomA: string; roomB: string; 
   A.connectors = A.connectors || []; B.connectors = B.connectors || [];
   const owner = (cid: string) => g.rooms.find((r: any) => (r.connectors || []).some((c: any) => c.id === cid));
   const already = g.relationships.some((l: any) => { const p = owner(l.connectorA), q = owner(l.connectorB); return !!p && !!q && ((p === A && q === B) || (p === B && q === A)); });
-  if (already) return fail(A.name + ' and ' + B.name + ' are already connected.');
+  if (already) return fail(A.name + ' and ' + B.name + ' are already connected. For another door use "Add opening" in the Connectors tab.');
   const a = A.layout, b = B.layout;
   const yo = [Math.max(a.y, b.y), Math.min(a.y + a.height, b.y + b.height)], xo = [Math.max(a.x, b.x), Math.min(a.x + a.width, b.x + b.width)];
   const cands = [
@@ -49,6 +49,79 @@ export function connectRooms(input: { graph: any; roomA: string; roomB: string; 
   let rid = ca.id + '--' + cb.id, n = 2; while (ids.has(rid)) rid = ca.id + '--' + cb.id + '-' + n++;
   g.relationships.push({ id: rid, connectorA: ca.id, connectorB: cb.id, importance: 'required' });
   return { graph: g, ok: true, message: 'Connected ' + A.name + ' and ' + B.name + ' with a ' + (type === 'door' ? 'door' : 'passage') + ' (' + A.name + ' ' + best.sa + ' / ' + B.name + ' ' + best.sb + ').', id: rid };
+}
+
+/**
+ * Adds ONE opening (door, open passage or window) on the wall nearest to a world point (within 0.5 m), at that point.
+ * - door / open passage: where the wall is shared with another room (facing walls touch within 0.08 m, shared part at least width + 0.1 m, point inside it) the opening
+ *   is a connected pair (both connectors at the same world position plus the relationship), so a second door between the same two rooms is possible; anywhere
+ *   else on the wall it is an unpaired exterior opening. A window is always unpaired. A hidden `Outside` room can be the partner but is never the wall that is hit.
+ * - The opening keeps half its width (at least 0.05 m) from the wall ends and 0.1 m from the next opening, otherwise it is refused with the reason.
+ * `snap` (grid step) rounds the position along the wall; `width` / `doorType` as in connectRooms. Returns the first connector's id and the opening's world point.
+ * Pure + deterministic (ties: smaller room id), the input graph is never mutated.
+ */
+export function addOpening(input: { graph: any; type?: string; at: { x: number; y: number }; width?: number; doorType?: string; snap?: number }): EditResult & { point?: { x: number; y: number }; side?: string; width?: number } {
+  const g: any = JSON.parse(JSON.stringify(input.graph));
+  const rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0, T = 0.08, GAP = 0.1;
+  const fail = (m: string) => ({ graph: input.graph, ok: false, message: m, id: '' });
+  const type = input.type === 'open-passage' ? 'open-passage' : input.type === 'window' ? 'window' : 'door', label = type === 'open-passage' ? 'open passage' : type;
+  const defW = (t: string) => (t === 'door' ? 0.9 : 1.2), cw = (c: any) => (c.width > 0 ? c.width : defW(c.type));
+  const wd = typeof input.width === 'number' && input.width > 0 ? Math.round(input.width * 100) / 100 : 0, w = wd || defW(type), need = w + GAP;
+  const OPP: any = { left: 'right', right: 'left', top: 'bottom', bottom: 'top' };
+  let best: any = null;
+  for (const r of g.rooms) {
+    const L = r.layout;
+    if (!L || String(r.name).toLowerCase() === 'outside') continue;
+    for (const side of ['top', 'right', 'bottom', 'left']) {
+      const hz = side === 'top' || side === 'bottom', fixed = side === 'top' ? L.y : side === 'bottom' ? L.y + L.height : side === 'left' ? L.x : L.x + L.width;
+      const a0 = hz ? L.x : L.y, a1 = a0 + (hz ? L.width : L.height), along = hz ? input.at.x : input.at.y, across = hz ? input.at.y : input.at.x;
+      const d = Math.hypot(Math.max(a0 - along, 0, along - a1), across - fixed);
+      if (d > 0.5) continue;
+      if (!best || d < best.d - 1e-9 || (Math.abs(d - best.d) <= 1e-9 && r.id < best.r.id)) best = { r, side, d };
+    }
+  }
+  if (!best) return fail('Click on a wall of a room.');
+  const R = best.r, side: string = best.side, horiz = side === 'top' || side === 'bottom', L = R.layout, s0 = horiz ? L.x : L.y, len = horiz ? L.width : L.height;
+  if (len < need - 1e-9) return fail('The ' + side + ' wall of ' + R.name + ' is too short for a ' + label + ' (needs ' + rnd(need) + ' m).');
+  let t = horiz ? input.at.x : input.at.y;
+  if (input.snap && input.snap > 0) t = Math.round(t / input.snap) * input.snap;
+  const half = Math.max(0.05, w / 2);
+  let partner: any = null, lo = 0, hi = 0;
+  if (type !== 'window') {
+    for (const Q of g.rooms) {
+      const M = Q.layout;
+      if (Q === R || !M) continue;
+      const gap = side === 'right' ? Math.abs(L.x + L.width - M.x) : side === 'left' ? Math.abs(M.x + M.width - L.x) : side === 'bottom' ? Math.abs(L.y + L.height - M.y) : Math.abs(M.y + M.height - L.y);
+      if (gap > T) continue;
+      const a0 = Math.max(s0, horiz ? M.x : M.y), a1 = Math.min(s0 + len, horiz ? M.x + M.width : M.y + M.height);
+      if (a1 - a0 < need - 1e-9 || t < a0 - 1e-9 || t > a1 + 1e-9) continue;
+      if (!partner || Q.id < partner.id) { partner = Q; lo = a0; hi = a1; }
+    }
+  }
+  t = rnd(Math.max(partner ? lo + half : s0 + half, Math.min(partner ? hi - half : s0 + len - half, t)));
+  const clash = (wall: string, rm: any, start: number) => (rm.connectors || []).some((c: any) => c.side === wall && Math.abs(start + (typeof c.offset === 'number' ? c.offset : (c.position ?? 0.5) * (wall === 'top' || wall === 'bottom' ? rm.layout.width : rm.layout.height)) - t) < (w + cw(c)) / 2 + GAP - 1e-9);
+  if (clash(side, R, s0) || (partner && clash(OPP[side], partner, horiz ? partner.layout.x : partner.layout.y))) return fail('Too close to another opening (keep ' + GAP + ' m between openings).');
+  const used = new Set<string>(g.rooms.flatMap((r: any) => (r.connectors || []).map((c: any) => c.id)));
+  const uniq = (base: string) => { let s = base, n = 2; while (used.has(s)) s = base + '-' + n++; used.add(s); return s; };
+  const make = (rm: any, sd: string) => {
+    const hz = sd === 'top' || sd === 'bottom', ln = hz ? rm.layout.width : rm.layout.height, off = rnd(Math.max(0.05, Math.min(ln - 0.05, t - (hz ? rm.layout.x : rm.layout.y))));
+    return { id: uniq(rm.id + '-' + sd + '-' + type), roomId: rm.id, side: sd, type, position: rnd(off / ln), offset: off, ...(wd ? { width: wd } : {}), ...(type === 'door' && input.doorType ? { doorType: input.doorType } : {}) };
+  };
+  R.connectors = R.connectors || [];
+  const ca = make(R, side);
+  R.connectors.push(ca);
+  if (partner) {
+    partner.connectors = partner.connectors || [];
+    const cb = make(partner, OPP[side]);
+    partner.connectors.push(cb);
+    const ids = new Set<string>(g.relationships.map((l: any) => l.id));
+    let rid = ca.id + '--' + cb.id, n = 2;
+    while (ids.has(rid)) rid = ca.id + '--' + cb.id + '-' + n++;
+    g.relationships.push({ id: rid, connectorA: ca.id, connectorB: cb.id, importance: 'required' });
+  }
+  const point = { x: horiz ? t : side === 'left' ? L.x : L.x + L.width, y: horiz ? (side === 'top' ? L.y : L.y + L.height) : t };
+  const message = 'Added a ' + label + ' to ' + R.name + ' (' + side + ' wall)' + (partner ? ', connecting to ' + partner.name : type === 'window' ? '' : ', not connected (exterior)') + '.';
+  return { graph: g, ok: true, message, id: ca.id, point, side, width: w };
 }
 
 /** New room (default size of its category) next to a room, on the wished side if there is free space, else on another side;

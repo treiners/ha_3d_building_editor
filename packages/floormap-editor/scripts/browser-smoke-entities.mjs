@@ -95,6 +95,22 @@ doc.querySelector('[data-hign]').click(); assert.deepEqual(hints(), []); assert.
 doc.querySelector('[data-hreset]').click(); assert.deepEqual(hints(), ['no-motion|b']);
 $('undo').click(); $('undo').click(); assert.equal(w.eval('(g.entitySettings||{}).ignoredHints'), undefined);
 for (const on of [false, true]) { $('ent-chk-motion').checked = on; $('ent-chk-motion').dispatchEvent(new w.Event('change', { bubbles: true })); assert.deepEqual(hints(), on ? ['no-motion|b'] : []); }
+// 6g. multi-select: marquee, align / distribute, group drag, copy / paste, delete, Ctrl+A (one undo step each)
+const key = (k, extra = {}) => doc.dispatchEvent(Object.assign(new w.Event('keydown', { bubbles: true }), { key: k, ...extra }));
+w.eval("for (const p of [[0.5,2.5],[1.5,0.5],[3,1]]) g=addEntity({graph:g,type:'light',roomId:'b',position:p}).graph;entSetSel([]);render()");
+const bl = () => ents().filter(e => e.type === 'light' && e.roomId === 'b'), xs = () => bl().map(e => e.position[0]), ids3 = bl().map(e => e.id);
+assert.equal(ids3.length, 3);
+ptr('pointerdown', canvas, 4.2, 0.2); ptr('pointermove', canvas, 7.8, 2.9); ptr('pointerup', canvas, 7.8, 2.9);
+assert.equal(w.eval('selM.size'), 3); assert.match($('ent-inspector').textContent, /3 selected/);
+doc.querySelector('[data-align=left]').click(); assert.deepEqual(xs(), [0.5, 0.5, 0.5]); $('undo').click(); assert.deepEqual(xs(), [0.5, 1.5, 3]); assert.equal(w.eval('selM.size'), 3);
+doc.querySelector('[data-align=hdist]').click(); assert.deepEqual(xs(), [0.5, 1.75, 3]); $('undo').click();
+ptr('pointerdown', doc.querySelector('[data-ent=' + ids3[0] + ']'), 4.5, 2.5); ptr('pointermove', canvas, 5, 2.5); ptr('pointerup', canvas, 5, 2.5);
+assert.deepEqual(xs(), [1, 2, 3.5]); $('undo').click(); assert.deepEqual(xs(), [0.5, 1.5, 3]);
+const hm = $('ent-inspector').querySelector('[data-mf=height]'); hm.value = '1.2'; hm.dispatchEvent(new w.Event('change', { bubbles: true })); assert.deepEqual(bl().map(e => e.height), [1.2, 1.2, 1.2]);
+key('c', { ctrlKey: true }); assert.match($('status').textContent, /Copied 3 entities/); ptr('pointermove', canvas, 5, 1); key('v', { ctrlKey: true });
+assert.equal(bl().length, 6); assert.equal(w.eval('selM.size'), 3); assert.match($('status').textContent, /Pasted 3 entities/);
+key('Delete'); assert.equal(bl().length, 3); $('undo').click(); assert.equal(bl().length, 6);
+w.eval("entSetSel(['" + ids3[0] + "']);render()"); key('a', { ctrlKey: true }); assert.equal(w.eval('selM.size'), w.eval('entitiesInBox(g,4,0,8,3).length')); key('Escape');
 // 7. save writes defaults; floor-plan mode again
 const saved = JSON.parse(w.eval('JSON.stringify(fillEntityDefaults(fillDefaults(g)))')); assert.deepEqual(saved.entitySettings, { coordinates: 'room', gridStep: 0.1, resize: 'anchor', checks: { motion: true, doorContact: true } });
 click('[data-app-btn=plan]'); assert.equal(doc.body.dataset.app, 'plan'); assert.equal(doc.querySelector('.entlayer'), null);

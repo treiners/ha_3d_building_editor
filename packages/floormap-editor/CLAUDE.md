@@ -34,6 +34,7 @@ npm i -D jsdom && node scripts/browser-smoke.mjs   # optional: drives the genera
 | `src/defaults.ts` | `fillDefaults`: copy of the graph with all defaults written out (used by Save graph) |
 | `src/editor.ts` | HTML/CSS/JS of the editor as one template string; embeds the pure modules above |
 | `src/entities.ts` | Entity placement (pure, embedded, sibling global `entityCatalog` only): add / move (re-parent) / update / remove, validate, coverage sector, coordinates, defaults. See `docs/V2.16-ENTITIES.md` |
+| `src/editor-openings.ts` | CSS / HTML / JS strings of *Add opening* (Connectors tab); uses the pure `addOpening` from `src/edit.ts`; the floor-plan `pointerdown` returns early while `addOp` is armed. See `docs/V2.16-OPENINGS.md` |
 | `src/editor-entities.ts` | CSS / HTML / JS strings of the entity mode (no backticks or dollar-brace in `entityJs`); hooked into `editor.ts` |
 | `test/*.test.ts` | `v214` (original regressions), `mapper`, `foundation`, `moves`, `walls`, `corners`, `touching` (touching rooms, whole-plan block), `align`, `edit`, `hidden` (Outside ignored, slideAlong, from) |
 | `scripts/browser-smoke.mjs` | optional jsdom end-to-end check |
