@@ -17,12 +17,12 @@ export const openingJs = `
 let addOp=null,addGhost=null;
 function addOpSet(t){addOp=t&&addOp!==t?t:null;addGhost=null;document.body.dataset.addop=addOp||'';document.querySelectorAll('[data-addop]').forEach(b=>b.classList.toggle('active',b.dataset.addop===addOp));$('addop-hint').textContent=addOp?'Click on a wall to place the '+(addOp==='open-passage'?'passage':addOp)+' (Shift = keep adding, Alt = free position, Esc = cancel).':'';render()}
 function addOpArgs(e){return{graph:g,type:addOp,at:world(e),width:+$('new-width').value||undefined,doorType:$('new-door').value||undefined,snap:e.altKey?0:step}}
-svg.addEventListener('pointerdown',e=>{if(!addOp||appMode==='entities')return;if(mode==='gap'){$('status').textContent='Adding openings is not available in the Gap view.';return}
+svg.addEventListener('pointerdown',e=>{if(!addOp||appMode!=='plan')return;if(mode==='gap'){$('status').textContent='Adding openings is not available in the Gap view.';return}
 const hb=JSON.stringify(g),res=addOpening(addOpArgs(e));$('status').textContent=res.message;
 if(res.ok){g=res.graph;rec(hb);selPort=res.id;sel.clear();addGhost=null;if(!e.shiftKey){addOp=null;document.body.dataset.addop='';document.querySelectorAll('[data-addop]').forEach(b=>b.classList.remove('active'));$('addop-hint').textContent=''}}
 render()});
-svg.addEventListener('pointermove',e=>{if(!addOp||appMode==='entities'||mode==='gap')return;const r=addOpening(addOpArgs(e));addGhost=r.ok?{p:r.point,w:r.width,side:r.side}:null;render()});
+svg.addEventListener('pointermove',e=>{if(!addOp||appMode!=='plan'||mode==='gap')return;const r=addOpening(addOpArgs(e));addGhost=r.ok?{p:r.point,w:r.width,side:r.side}:null;render()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&addOp)addOpSet(null)});
 document.querySelectorAll('[data-addop]').forEach(b=>b.onclick=()=>addOpSet(b.dataset.addop));
-{const r0=render;render=function(){r0();if(addOp&&addGhost&&mode!=='gap'&&appMode!=='entities'){const p=addGhost.p,h=addGhost.side==='top'||addGhost.side==='bottom',w=addGhost.w/2;svg.insertAdjacentHTML('beforeend','<line class="addop-ghost" x1="'+(h?p.x-w:p.x)+'" y1="'+(h?p.y:p.y-w)+'" x2="'+(h?p.x+w:p.x)+'" y2="'+(h?p.y:p.y+w)+'"/>')}}}
+{const r0=render;render=function(){r0();if(addOp&&addGhost&&mode!=='gap'&&appMode==='plan'){const p=addGhost.p,h=addGhost.side==='top'||addGhost.side==='bottom',w=addGhost.w/2;svg.insertAdjacentHTML('beforeend','<line class="addop-ghost" x1="'+(h?p.x-w:p.x)+'" y1="'+(h?p.y:p.y-w)+'" x2="'+(h?p.x+w:p.x)+'" y2="'+(h?p.y:p.y+w)+'"/>')}}}
 `;

@@ -76,6 +76,10 @@ assert.deepEqual(ents().find(e => e.type === 'environment-sensor').measures, ['t
 $('ent-resize').value = 'anchor'; $('ent-resize').dispatchEvent(new w.Event('change', { bubbles: true }));
 assert.equal(w.eval('g.entitySettings.resize'), 'anchor'); assert.ok(doc.querySelector('#ent-inspector [data-ef=anchorCorner]'), 'anchor corner field in anchor mode');
 $('undo').click(); assert.notEqual(w.eval('(g.entitySettings||{}).resize'), 'anchor'); $('redo').click(); assert.equal(w.eval('g.entitySettings.resize'), 'anchor');
+// 6d2. regression: placing a room type away from every room shows a hint (it used to throw inside the handler)
+const esc2 = () => doc.dispatchEvent(Object.assign(new w.Event('keydown', { bubbles: true }), { key: 'Escape' }));
+click('[data-ptype=thermostat]'); ptr('pointerdown', canvas, 50, 50); assert.equal($('status').textContent, 'Click inside a room.'); assert.equal(w.eval('placing'), 'thermostat'); esc2();
+click('[data-ptype=light]'); ptr('pointerdown', canvas, 50, 50); assert.match($('status').textContent, /Click inside a room or an outdoor area/); esc2();
 // 6e. camera (directional: cone + handles), lock and blind / cover on the door, thermostat
 click('[data-ptype=camera]'); ptr('pointerdown', canvas, 3, 2.5);
 const cam = ents().at(-1); assert.deepEqual([cam.type, cam.height, cam.fieldOfViewDegrees, cam.range], ['camera', 2.3, 90, 8]);
