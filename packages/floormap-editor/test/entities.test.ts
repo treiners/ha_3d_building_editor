@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { entityCatalog, entityWorld, coverageSector, nearestAnchor, addEntity, moveEntity, updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, syncEntitySizes, coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities } from '../src/entities.js';
+import { entityCatalog, entityWorld, coverageSector, nearestAnchor, addEntity, moveEntity, updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, syncEntitySizes, coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities, entityHost, entityHostAt } from '../src/entities.js';
 import { removeRoom, removeConnector } from '../src/edit.js';
 
 const room = (id: string, x: number, y: number, connectors: any[] = [], w = 4, h = 3) => ({ id, name: id, sizeCategory: 'medium', connectors, layout: { x, y, width: w, height: h } });
@@ -186,7 +186,7 @@ describe('nearestAnchor / catalogue', () => {
 
 describe('embedded source evaluates and matches Node', () => {
   it('toString of the functions, evaluated, gives identical results', () => {
-    const fns = [entityCatalog, entityWorld, coverageSector, nearestAnchor, addEntity, moveEntity, updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults];
+    const fns = [entityCatalog, entityWorld, entityHost, entityHostAt, coverageSector, nearestAnchor, addEntity, moveEntity, updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults];
     const E: any = new Function(fns.map(f => f.toString()).join('\n') + '\nreturn {' + fns.map(f => f.name).join(',') + '};')();
     const g = scene();
     const a = addEntity({ graph: g, type: 'motion-sensor', roomId: 'a', at: { x: 2.2, y: 1.3 }, step: 0.1 }), b = E.addEntity({ graph: g, type: 'motion-sensor', roomId: 'a', at: { x: 2.2, y: 1.3 }, step: 0.1 });
@@ -395,12 +395,66 @@ describe('multi-select helpers: box, move, remove, paste, align / distribute, sh
     assert.deepEqual(ent(r).map(e => [e.id, e.range, e.height, e.name]), [['a-motion-sensor', 5, 1, undefined], ['a-camera', 5, 1, undefined], ['a-light', undefined, 1, undefined], ['a-right-door-door-contact', undefined, undefined, undefined]]);
   });
   it('embedded source matches Node for all of them', () => {
-    const fns = [entityCatalog, entityWorld, updateEntity, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities];
+    const fns = [entityCatalog, entityWorld, entityHost, entityHostAt, updateEntity, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities];
     const E: any = new Function(fns.map(f => f.toString()).join('\n') + '\nreturn {' + fns.map(f => f.name).join(',') + '};')();
     const g = lightsIn([[0.5, 2.5], [1.5, 0.5], [3, 1]]), ids = ['a-light', 'a-light-2', 'a-light-3'], items = [{ entity: ent(g)[0], x: 0.5, y: 2.5 }];
     assert.deepEqual(E.entitiesInBox(g, 0, 0, 2, 3), entitiesInBox(g, 0, 0, 2, 3)); assert.deepEqual(E.moveEntities({ graph: g, ids, dx: 4, dy: 0 }), moveEntities({ graph: g, ids, dx: 4, dy: 0 }));
     assert.deepEqual(E.alignEntities({ graph: g, ids, mode: 'hdist' }), alignEntities({ graph: g, ids, mode: 'hdist' })); assert.deepEqual(E.pasteEntities({ graph: g, items, dx: 4, dy: 0, step: 0.1 }), pasteEntities({ graph: g, items, dx: 4, dy: 0, step: 0.1 }));
     assert.deepEqual(E.removeEntities({ graph: g, ids: ['a-light'] }), removeEntities({ graph: g, ids: ['a-light'] })); assert.deepEqual(E.updateEntities({ graph: g, ids, patch: { height: 1 } }), updateEntities({ graph: g, ids, patch: { height: 1 } }));
+  });
+});
+
+describe('entities in outside areas (areaId)', () => {
+  const deck = { id: 'deck', name: 'Deck', kind: 'deck', shape: 'rect', layout: { x: 10, y: 0, width: 4, height: 3 } };
+  const pond = { id: 'pond', name: 'Pond', kind: 'pond', shape: 'ellipse', layout: { x: 10, y: 5, width: 4, height: 2 } };
+  const withAreas = (extra: any = {}) => scene({ areas: [deck, pond], ...extra });
+  it('camera at world (11,1) in the deck (10,0), snap 0.1 -> [1,1], id deck-camera, areaId only; world point (11,1); smoke detector and unknown areas are refused', () => {
+    const r = addEntity({ graph: withAreas(), type: 'camera', areaId: 'deck', at: { x: 11, y: 1 }, step: 0.1 });
+    assert.deepEqual(ent(r.graph)[0], { id: 'deck-camera', type: 'camera', areaId: 'deck', position: [1, 1], height: 2.3, facingDegrees: 0, fieldOfViewDegrees: 90, range: 8 });
+    assert.deepEqual(entityWorld(r.graph, ent(r.graph)[0]), { x: 11, y: 1, roomId: '', areaId: 'deck' });
+    assert.match(addEntity({ graph: withAreas(), type: 'smoke-detector', areaId: 'deck' }).message, /only be placed in a room/); assert.match(addEntity({ graph: withAreas(), type: 'light', areaId: 'zz' }).message, /placed area/);
+  });
+  it('hosts under a point: rooms first, then areas (outdoor types only), the Outside room last; ellipse corners do not count', () => {
+    const g = withAreas({ areas: [deck, pond, { id: 'garden', name: 'Garden', kind: 'garden', shape: 'rect', layout: { x: 5, y: -5, width: 30, height: 30 } }] }); g.rooms.push({ id: 'outside', name: 'Outside', connectors: [], layout: { x: -10, y: -10, width: 60, height: 60 } });
+    assert.deepEqual(nearestAnchor(g, 'light', 1, 1), { roomId: 'a', distance: 0 }); assert.deepEqual(nearestAnchor(g, 'light', 11, 1), { areaId: 'deck', distance: 0 });
+    assert.deepEqual(nearestAnchor(g, 'light', 6, 30), { roomId: 'outside', distance: 0 }, 'beyond the garden only Outside is left');
+    assert.deepEqual(nearestAnchor(g, 'light', 20, 10), { areaId: 'garden', distance: 0 }, 'a garden beats Outside'); assert.deepEqual(nearestAnchor(g, 'thermostat', 20, 10), { roomId: 'outside', distance: 0 }, 'indoor types ignore areas');
+    assert.equal(nearestAnchor(g, 'light', 10.05, 5.05)!.areaId, 'garden', 'the pond corner is outside the ellipse'); assert.equal(nearestAnchor(g, 'light', 12, 6)!.areaId, 'pond');
+    assert.equal(entityHostAt(scene(), 11, 1, true), null); assert.deepEqual(entityHost(g, { areaId: 'deck' }), { id: 'deck', kind: 'area', name: 'Deck', layout: deck.layout }); assert.equal(entityHost(g, { connectorId: 'x' }), null);
+  });
+  it('dragging a light from room a to (11,1) re-parents it to the deck ([1,1], roomId removed, "Moved to Deck.") and back; a smoke detector stays in its room (clamped to [4,1])', () => {
+    const g = withAreas({ entityPlacements: [{ id: 'l', type: 'light', roomId: 'a', position: [1, 1] }, { id: 's', type: 'smoke-detector', roomId: 'a', position: [1, 1] }] });
+    const r = moveEntity({ graph: g, id: 'l', x: 11, y: 1 });
+    assert.deepEqual([ent(r.graph)[0].areaId, 'roomId' in ent(r.graph)[0], ent(r.graph)[0].position, r.message], ['deck', false, [1, 1], 'Moved to Deck.']);
+    const back = moveEntity({ graph: r.graph, id: 'l', x: 1, y: 1 }); assert.deepEqual([ent(back.graph)[0].roomId, 'areaId' in ent(back.graph)[0]], ['a', false]);
+    const s = moveEntity({ graph: g, id: 's', x: 11, y: 1 }); assert.deepEqual([ent(s.graph)[1].roomId, ent(s.graph)[1].position, 'areaId' in ent(s.graph)[1]], ['a', [4, 1], false]);
+  });
+  it('group move by +10 sends two lights into the deck ([1,1], [2,1]); paste with -10 lands the copies in room a; align left keeps a deck light in the deck (clamped to its left edge)', () => {
+    const g = withAreas({ entityPlacements: [{ id: 'l1', type: 'light', roomId: 'a', position: [1, 1] }, { id: 'l2', type: 'light', roomId: 'a', position: [2, 1] }] });
+    const m = moveEntities({ graph: g, ids: ['l1', 'l2'], dx: 10, dy: 0 }).graph; assert.deepEqual(ent(m).map(e => [e.areaId, e.position]), [['deck', [1, 1]], ['deck', [2, 1]]]);
+    const p = pasteEntities({ graph: m, items: ent(m).map(e => ({ entity: e, x: 10 + e.position[0], y: e.position[1] })), dx: -10, dy: 0, step: 0.1 });
+    assert.deepEqual(ent(p.graph).slice(2).map(e => [e.roomId, 'areaId' in e, e.position]), [['a', false, [1, 1]], ['a', false, [2, 1]]]);
+    const mixed = withAreas({ entityPlacements: [{ id: 'r', type: 'light', roomId: 'a', position: [1, 1] }, { id: 'd', type: 'light', areaId: 'deck', position: [1, 2] }] });
+    assert.deepEqual(ent(alignEntities({ graph: mixed, ids: ['r', 'd'], mode: 'left' }).graph).map(e => [e.roomId, e.areaId, e.position]), [['a', undefined, [1, 1]], [undefined, 'deck', [0, 2]]]);
+  });
+  it('validation: missing area = orphan, smoke detector in an area = type-mismatch, roomId + areaId = orphan, outside the deck (x 5 > 4) = outside-room', () => {
+    const g = withAreas({ entityPlacements: [{ id: 'o', type: 'light', areaId: 'zz', position: [1, 1] }, { id: 't', type: 'smoke-detector', areaId: 'deck', position: [1, 1] }, { id: 'b', type: 'light', roomId: 'a', areaId: 'deck', position: [1, 1] }, { id: 'x', type: 'light', areaId: 'deck', position: [5, 1] }, { id: 'ok', type: 'light', areaId: 'deck', position: [1, 1] }] });
+    assert.deepEqual(validateEntities(g).map(i => i.id + ':' + i.code), ['b:orphan', 'o:orphan', 't:type-mismatch', 'x:outside-room']);
+  });
+  it('plan -> room conversion, size sync, field edits and defaults treat areas like rooms', () => {
+    const conv = convertEntityCoordinates(withAreas({ entitySettings: { coordinates: 'plan' }, entityPlacements: [{ id: 'l', type: 'light', areaId: 'deck', position: [11, 1] }] }), 'room'); assert.deepEqual(ent(conv)[0].position, [1, 1]);
+    const g = withAreas({ entityPlacements: [{ id: 'l', type: 'light', areaId: 'deck', position: [4, 3] }] }), s0 = syncEntitySizes(g, null); assert.deepEqual(s0.sizes['area:deck'], [4, 3]);
+    const small = JSON.parse(JSON.stringify(g)); small.areas[0].layout.width = 2; small.areas[0].layout.height = 1.5; assert.deepEqual(ent(syncEntitySizes(small, s0.sizes).graph)[0].position, [2, 1.5]);
+    const u = updateEntity({ graph: g, id: 'l', patch: { position: [20, 20], height: 1 } }).graph; assert.deepEqual([ent(u)[0].position, ent(u)[0].height], [[4, 3], 1]);
+    assert.equal(fillEntityDefaults(withAreas({ entityPlacements: [{ id: 'm', type: 'motion-sensor', areaId: 'deck', position: [1, 1] }] })).entityPlacements[0].height, 2.1);
+  });
+  it('embedded source matches Node for hosts, add, move and paste in areas', () => {
+    const fns = [entityCatalog, entityWorld, entityHost, entityHostAt, nearestAnchor, addEntity, moveEntity, pasteEntities];
+    const E: any = new Function(fns.map(f => f.toString()).join('\n') + '\nreturn {' + fns.map(f => f.name).join(',') + '};')(), g = withAreas();
+    assert.deepEqual(E.addEntity({ graph: g, type: 'camera', areaId: 'deck', at: { x: 11, y: 1 }, step: 0.1 }), addEntity({ graph: g, type: 'camera', areaId: 'deck', at: { x: 11, y: 1 }, step: 0.1 }));
+    assert.deepEqual(E.nearestAnchor(g, 'light', 12, 6), nearestAnchor(g, 'light', 12, 6)); const a = addEntity({ graph: g, type: 'light', roomId: 'a', position: [1, 1] }).graph;
+    assert.deepEqual(E.moveEntity({ graph: a, id: 'a-light', x: 11, y: 1 }), moveEntity({ graph: a, id: 'a-light', x: 11, y: 1 }));
+    assert.deepEqual(E.pasteEntities({ graph: a, items: [{ entity: ent(a)[0], x: 1, y: 1 }], dx: 10, dy: 0, step: 0.1 }), pasteEntities({ graph: a, items: [{ entity: ent(a)[0], x: 1, y: 1 }], dx: 10, dy: 0, step: 0.1 }));
   });
 });
 
@@ -420,8 +474,8 @@ describe('entity mode shell (HTML structure)', () => {
     for (const s of selectors) assert.ok(/^(\.|body\[)/.test(s.trim()), 'unscoped selector: ' + s);
     assert.doesNotMatch(entityCss, /(^|[}\s,])svg\s*\{/);
   });
-  it('old editor behaviour is guarded: the floor-plan pointerdown returns early in entity mode and while an opening type is armed', async () => {
+  it('old editor behaviour is guarded: the floor-plan pointerdown returns early outside plan mode and while an opening type is armed', async () => {
     const { editorHtml } = await import('../src/editor.js');
-    assert.ok(editorHtml(scene()).includes("svg.addEventListener('pointerdown',e=>{if(appMode==='entities'||addOp)return;"));
+    assert.ok(editorHtml(scene()).includes("svg.addEventListener('pointerdown',e=>{if(appMode!=='plan'||addOp)return;"));
   });
 });

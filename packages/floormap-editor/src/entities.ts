@@ -10,13 +10,13 @@ export interface EntityResult { graph: any; ok: boolean; message: string; id: st
 /** Type catalogue. `anchor`: 'room' (position inside a room) or 'connector' (bound to a connector). */
 export function entityCatalog(): Record<string, any> {
   return {
-    light: { label: 'Light', anchor: 'room', height: 2.2, directional: false },
-    'motion-sensor': { label: 'Motion sensor', anchor: 'room', height: 2.1, directional: true, facingDegrees: 0, fieldOfViewDegrees: 100, range: 3.5 },
-    camera: { label: 'Camera', anchor: 'room', height: 2.3, directional: true, facingDegrees: 0, fieldOfViewDegrees: 90, range: 8 },
-    'environment-sensor': { label: 'Environment sensor', anchor: 'room', height: 1.5, directional: false, multi: { field: 'measures', options: ['temperature', 'humidity', 'co2', 'illuminance', 'pressure', 'voc'], default: ['temperature', 'humidity'] } },
+    light: { label: 'Light', anchor: 'room', outdoor: true, height: 2.2, directional: false },
+    'motion-sensor': { label: 'Motion sensor', anchor: 'room', outdoor: true, height: 2.1, directional: true, facingDegrees: 0, fieldOfViewDegrees: 100, range: 3.5 },
+    camera: { label: 'Camera', anchor: 'room', outdoor: true, height: 2.3, directional: true, facingDegrees: 0, fieldOfViewDegrees: 90, range: 8 },
+    'environment-sensor': { label: 'Environment sensor', anchor: 'room', outdoor: true, height: 1.5, directional: false, multi: { field: 'measures', options: ['temperature', 'humidity', 'co2', 'illuminance', 'pressure', 'voc'], default: ['temperature', 'humidity'] } },
     'smoke-detector': { label: 'Smoke / fire detector', anchor: 'room', height: 2.3, directional: false },
     thermostat: { label: 'Thermostat / TRV', anchor: 'room', height: 1.5, directional: false },
-    'water-leak': { label: 'Water leak sensor', anchor: 'room', height: 0.1, directional: false },
+    'water-leak': { label: 'Water leak sensor', anchor: 'room', outdoor: true, height: 0.1, directional: false },
     'door-contact': { label: 'Door contact', anchor: 'connector', connectorTypes: ['door'], directional: false },
     'window-contact': { label: 'Window contact', anchor: 'connector', connectorTypes: ['window'], directional: false },
     lock: { label: 'Lock', anchor: 'connector', connectorTypes: ['door'], directional: false },
@@ -24,8 +24,32 @@ export function entityCatalog(): Record<string, any> {
   };
 }
 
+/** The room or area an entity sits in ({ id, kind: 'room' | 'area', name, layout }); null for connector entities and missing / unplaced hosts. */
+export function entityHost(graph: any, e: any): { id: string; kind: string; name: string; layout: any } | null {
+  const h = e.areaId ? (graph.areas || []).find((a: any) => a.id === e.areaId) : e.roomId ? graph.rooms.find((r: any) => r.id === e.roomId) : null;
+  return h && h.layout ? { id: h.id, kind: e.areaId ? 'area' : 'room', name: h.name, layout: h.layout } : null;
+}
+
+/**
+ * The host under a world point. Order: rooms (smallest first), then - only when `outdoor` is true - areas (smallest first, ellipses honour their curve),
+ * then the hidden `Outside` room as the last resort. Ties go to the smaller id.
+ */
+export function entityHostAt(graph: any, x: number, y: number, outdoor: boolean): { id: string; kind: string; name: string; layout: any } | null {
+  let best: any = null;
+  const consider = (kind: string, h: any, tier: number) => {
+    const L = h.layout;
+    if (!L || x < L.x - 1e-6 || x > L.x + L.width + 1e-6 || y < L.y - 1e-6 || y > L.y + L.height + 1e-6) return;
+    if (kind === 'area' && h.shape === 'ellipse') { const u = (x - (L.x + L.width / 2)) / (L.width / 2), v = (y - (L.y + L.height / 2)) / (L.height / 2); if (u * u + v * v > 1 + 1e-9) return; }
+    const s = L.width * L.height;
+    if (!best || tier < best.tier || (tier === best.tier && (s < best.s - 1e-9 || (Math.abs(s - best.s) <= 1e-9 && h.id < best.h.id)))) best = { kind, h, tier, s };
+  };
+  for (const r of graph.rooms) consider('room', r, String(r.name).toLowerCase() === 'outside' ? 2 : 0);
+  if (outdoor) for (const a of graph.areas || []) consider('area', a, 1);
+  return best ? { id: best.h.id, kind: best.kind, name: best.h.name, layout: best.h.layout } : null;
+}
+
 /** World (plan) position of an entity: room anchor = room corner + position, connector anchor = the connector point. */
-export function entityWorld(graph: any, e: any): { x: number; y: number; roomId: string } | null {
+export function entityWorld(graph: any, e: any): { x: number; y: number; roomId: string; areaId?: string } | null {
   const rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0;
   if (e.connectorId) {
     for (const r of graph.rooms) {
@@ -37,9 +61,9 @@ export function entityWorld(graph: any, e: any): { x: number; y: number; roomId:
     }
     return null;
   }
-  const r = graph.rooms.find((x: any) => x.id === e.roomId);
-  if (!r || !r.layout || !Array.isArray(e.position)) return null;
-  return { x: rnd(r.layout.x + e.position[0]), y: rnd(r.layout.y + e.position[1]), roomId: r.id };
+  const h = e.areaId ? (graph.areas || []).find((x: any) => x.id === e.areaId) : graph.rooms.find((x: any) => x.id === e.roomId);
+  if (!h || !h.layout || !Array.isArray(e.position)) return null;
+  return e.areaId ? { x: rnd(h.layout.x + e.position[0]), y: rnd(h.layout.y + e.position[1]), roomId: '', areaId: h.id } : { x: rnd(h.layout.x + e.position[0]), y: rnd(h.layout.y + e.position[1]), roomId: h.id };
 }
 
 /** Polygon (apex first, then the arc) of the coverage sector; angles per `facingDegrees` convention. */
@@ -54,18 +78,12 @@ export function coverageSector(x: number, y: number, facingDegrees: number, fiel
 }
 
 /** Which anchor a pointer position hits: the smallest room containing it (room types) or the nearest matching connector within maxDist (connector types). */
-export function nearestAnchor(graph: any, type: string, x: number, y: number, maxDist?: number): { roomId?: string; connectorId?: string; distance: number } | null {
+export function nearestAnchor(graph: any, type: string, x: number, y: number, maxDist?: number): { roomId?: string; areaId?: string; connectorId?: string; distance: number } | null {
   const cat = entityCatalog()[type];
   if (!cat) return null;
   if (cat.anchor === 'room') {
-    let best: any = null, ba = Infinity;
-    for (const r of graph.rooms) {
-      const L = r.layout;
-      if (!L || x < L.x - 1e-6 || x > L.x + L.width + 1e-6 || y < L.y - 1e-6 || y > L.y + L.height + 1e-6) continue;
-      const a = L.width * L.height;
-      if (a < ba - 1e-9 || (Math.abs(a - ba) <= 1e-9 && r.id < best.id)) { best = r; ba = a; }
-    }
-    return best ? { roomId: best.id, distance: 0 } : null;
+    const h = entityHostAt(graph, x, y, !!cat.outdoor);
+    return h ? (h.kind === 'area' ? { areaId: h.id, distance: 0 } : { roomId: h.id, distance: 0 }) : null;
   }
   const lim = maxDist ?? 0.6;
   let bestId = '', bd = Infinity;
@@ -80,7 +98,7 @@ export function nearestAnchor(graph: any, type: string, x: number, y: number, ma
 }
 
 /** Adds an entity. Room types: roomId + `position` ([x,y] relative) or `at` (world point); connector types: connectorId. */
-export function addEntity(input: { graph: any; type: string; roomId?: string; connectorId?: string; position?: number[]; at?: { x: number; y: number }; name?: string; id?: string; haEntityId?: string; step?: number }): EntityResult {
+export function addEntity(input: { graph: any; type: string; roomId?: string; areaId?: string; connectorId?: string; position?: number[]; at?: { x: number; y: number }; name?: string; id?: string; haEntityId?: string; step?: number }): EntityResult {
   const g: any = JSON.parse(JSON.stringify(input.graph));
   const fail = (m: string): EntityResult => ({ graph: input.graph, ok: false, message: m, id: '' });
   const rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0;
@@ -98,12 +116,14 @@ export function addEntity(input: { graph: any; type: string; roomId?: string; co
     if (list.some(o => o.type === input.type && o.connectorId === c.id)) return fail('That connector already has a ' + cat.label.toLowerCase() + '.');
     e.connectorId = c.id; anchorId = c.id;
   } else {
-    const r = g.rooms.find((x: any) => x.id === input.roomId);
-    if (!r || !r.layout) return fail('Pick a placed room.');
+    const r = input.areaId ? (g.areas || []).find((x: any) => x.id === input.areaId) : g.rooms.find((x: any) => x.id === input.roomId);
+    if (!r || !r.layout) return fail(input.areaId ? 'Pick a placed area.' : 'Pick a placed room.');
+    if (input.areaId && !cat.outdoor) return fail(cat.label + ' can only be placed in a room.');
     const L = r.layout, st = input.step && input.step > 0 ? input.step : 0;
     let p = input.position ? [input.position[0], input.position[1]] : input.at ? [input.at.x - L.x, input.at.y - L.y] : [L.width / 2, L.height / 2];
     if (st) p = p.map(v => Math.round(v / st) * st);
-    e.roomId = r.id; anchorId = r.id;
+    if (input.areaId) e.areaId = r.id; else e.roomId = r.id;
+    anchorId = r.id;
     e.position = [rnd(Math.max(0, Math.min(L.width, p[0]!))), rnd(Math.max(0, Math.min(L.height, p[1]!)))];
     e.height = rnd(Math.min(cat.height, wallH));
     if (cat.directional) { e.facingDegrees = cat.facingDegrees; e.fieldOfViewDegrees = cat.fieldOfViewDegrees; e.range = cat.range; }
@@ -129,18 +149,12 @@ export function moveEntity(input: { graph: any; id: string; x: number; y: number
   const e = (g.entityPlacements || []).find((o: any) => o.id === input.id);
   if (!e) return fail('No such entity.');
   if (e.connectorId) return fail('Connector entities follow their connector.');
-  let best: any = null, ba = Infinity;
-  for (const r of g.rooms) {
-    const L = r.layout;
-    if (!L || input.x < L.x - 1e-6 || input.x > L.x + L.width + 1e-6 || input.y < L.y - 1e-6 || input.y > L.y + L.height + 1e-6) continue;
-    const a = L.width * L.height;
-    if (a < ba - 1e-9 || (Math.abs(a - ba) <= 1e-9 && r.id < best.id)) { best = r; ba = a; }
-  }
-  const r = best || g.rooms.find((x: any) => x.id === e.roomId);
-  if (!r || !r.layout) return fail('Room has no layout.');
+  const cat = entityCatalog()[e.type] || {};
+  const r = entityHostAt(g, input.x, input.y, !!cat.outdoor) || entityHost(g, e);
+  if (!r) return fail('The entity has no room or area.');
   const L = r.layout, st = input.step && input.step > 0 ? input.step : 0, sn = (v: number) => (st ? Math.round(v / st) * st : v);
-  const reparent = r.id !== e.roomId;
-  e.roomId = r.id;
+  const reparent = r.id !== (e.areaId || e.roomId) || r.kind !== (e.areaId ? 'area' : 'room');
+  if (r.kind === 'area') { delete e.roomId; e.areaId = r.id; } else { delete e.areaId; e.roomId = r.id; }
   e.position = [rnd(Math.max(0, Math.min(L.width, sn(input.x - L.x)))), rnd(Math.max(0, Math.min(L.height, sn(input.y - L.y))))];
   return { graph: g, ok: true, message: reparent ? 'Moved to ' + r.name + '.' : 'Moved.', id: e.id };
 }
@@ -160,18 +174,18 @@ export function updateEntity(input: { graph: any; id: string; patch: any }): Ent
     e.id = id;
   }
   for (const k of ['name', 'haEntityId']) if (k in P) { if (P[k]) e[k] = String(P[k]); else delete e[k]; }
-  if (e.roomId && Array.isArray(P.position)) {
-    const r = g.rooms.find((x: any) => x.id === e.roomId), x = num(P.position[0]), y = num(P.position[1]);
-    if (r && r.layout && !isNaN(x) && !isNaN(y)) e.position = [rnd(Math.max(0, Math.min(r.layout.width, x))), rnd(Math.max(0, Math.min(r.layout.height, y)))];
+  if ((e.roomId || e.areaId) && Array.isArray(P.position)) {
+    const r = entityHost(g, e), x = num(P.position[0]), y = num(P.position[1]);
+    if (r && !isNaN(x) && !isNaN(y)) e.position = [rnd(Math.max(0, Math.min(r.layout.width, x))), rnd(Math.max(0, Math.min(r.layout.height, y)))];
   }
-  if (e.roomId && !isNaN(num(P.height))) e.height = rnd(Math.max(0, Math.min(wallH, P.height)));
+  if ((e.roomId || e.areaId) && !isNaN(num(P.height))) e.height = rnd(Math.max(0, Math.min(wallH, P.height)));
   if (cat.directional) {
     if (!isNaN(num(P.facingDegrees))) e.facingDegrees = rnd(((P.facingDegrees % 360) + 360) % 360);
     if (!isNaN(num(P.fieldOfViewDegrees))) e.fieldOfViewDegrees = rnd(Math.max(10, Math.min(360, P.fieldOfViewDegrees)));
     if (!isNaN(num(P.range))) e.range = rnd(Math.max(0.5, Math.min(30, P.range)));
   }
   if (cat.multi && Array.isArray(P[cat.multi.field])) { const v = cat.multi.options.filter((o: string) => P[cat.multi.field].indexOf(o) >= 0); if (v.length) e[cat.multi.field] = v; }
-  if (e.roomId && 'anchorCorner' in P) { if (['tl', 'tr', 'bl', 'br'].indexOf(P.anchorCorner) >= 0) e.anchorCorner = P.anchorCorner; else delete e.anchorCorner; }
+  if ((e.roomId || e.areaId) && 'anchorCorner' in P) { if (['tl', 'tr', 'bl', 'br'].indexOf(P.anchorCorner) >= 0) e.anchorCorner = P.anchorCorner; else delete e.anchorCorner; }
   return { graph: g, ok: true, message: 'Updated "' + e.id + '".', id: e.id };
 }
 
@@ -193,9 +207,10 @@ export function validateEntities(graph: any): { id: string; code: string; messag
     seen[id] = (seen[id] || 0) + 1;
     const c = cat[e.type];
     if (!c) { add(id, 'unknown-type', 'Unknown type "' + e.type + '".'); return; }
-    if (!!e.roomId === !!e.connectorId) { add(id, 'orphan', 'Needs exactly one of roomId / connectorId.'); return; }
+    if ((e.roomId ? 1 : 0) + (e.areaId ? 1 : 0) + (e.connectorId ? 1 : 0) !== 1) { add(id, 'orphan', 'Needs exactly one of roomId / areaId / connectorId.'); return; }
     if (c.anchor === 'connector' && !e.connectorId) add(id, 'type-mismatch', c.label + ' must be bound to a connector.');
-    if (c.anchor === 'room' && !e.roomId) add(id, 'type-mismatch', c.label + ' must sit in a room.');
+    if (c.anchor === 'room' && !e.roomId && !e.areaId) add(id, 'type-mismatch', c.label + ' must sit in a room.');
+    if (e.areaId && !c.outdoor) add(id, 'type-mismatch', c.label + ' cannot be placed in an area.');
     if (e.connectorId) {
       const owner = graph.rooms.find((r: any) => (r.connectors || []).some((p: any) => p.id === e.connectorId));
       const p = owner && owner.connectors.find((q: any) => q.id === e.connectorId);
@@ -205,11 +220,11 @@ export function validateEntities(graph: any): { id: string; code: string; messag
       const key = l ? l.id : p.id;
       (contactDoors[e.type + '|' + key] = contactDoors[e.type + '|' + key] || []).push(id);
     } else {
-      const r = graph.rooms.find((x: any) => x.id === e.roomId);
-      if (!r) { add(id, 'orphan', 'Room "' + e.roomId + '" does not exist.'); return; }
-      if (!r.layout) { add(id, 'no-layout', 'Room "' + r.name + '" is not placed.'); return; }
+      const r = e.areaId ? (graph.areas || []).find((x: any) => x.id === e.areaId) : graph.rooms.find((x: any) => x.id === e.roomId), what = e.areaId ? 'Area' : 'Room';
+      if (!r) { add(id, 'orphan', what + ' "' + (e.areaId || e.roomId) + '" does not exist.'); return; }
+      if (!r.layout) { add(id, 'no-layout', what + ' "' + r.name + '" is not placed.'); return; }
       const p = e.position;
-      if (!Array.isArray(p) || p[0] < -1e-6 || p[1] < -1e-6 || p[0] > r.layout.width + 1e-6 || p[1] > r.layout.height + 1e-6) add(id, 'outside-room', 'Position is outside room "' + r.name + '".');
+      if (!Array.isArray(p) || p[0] < -1e-6 || p[1] < -1e-6 || p[0] > r.layout.width + 1e-6 || p[1] > r.layout.height + 1e-6) add(id, 'outside-room', 'Position is outside ' + what.toLowerCase() + ' "' + r.name + '".');
       if (typeof e.height === 'number' && (e.height < 0 || e.height > wallH + 1e-6)) add(id, 'height-range', 'Height ' + e.height + ' m is outside 0..' + wallH + ' m.');
       if (c.multi && Array.isArray(e[c.multi.field]) && e[c.multi.field].some((o: string) => c.multi.options.indexOf(o) < 0)) add(id, 'invalid-option', 'Unknown value in ' + c.multi.field + '.');
     }
@@ -224,7 +239,7 @@ export function convertEntityCoordinates(graph: any, to: string): any {
   const g: any = JSON.parse(JSON.stringify(graph)), rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0;
   const from = (g.entitySettings && g.entitySettings.coordinates) === 'plan' ? 'plan' : 'room';
   if (from !== to) for (const e of g.entityPlacements || []) {
-    const r = e.roomId && g.rooms.find((x: any) => x.id === e.roomId);
+    const r = e.areaId ? (g.areas || []).find((x: any) => x.id === e.areaId) : e.roomId && g.rooms.find((x: any) => x.id === e.roomId);
     if (!r || !r.layout || !Array.isArray(e.position)) continue;
     const s = to === 'room' ? -1 : 1;
     e.position = [rnd(e.position[0] + s * r.layout.x), rnd(e.position[1] + s * r.layout.y)];
@@ -241,12 +256,13 @@ export function convertEntityCoordinates(graph: any, to: string): any {
 export function syncEntitySizes(graph: any, prev: Record<string, number[]> | null): { graph: any; sizes: Record<string, number[]>; changed: number } {
   const sizes: Record<string, number[]> = {};
   for (const r of graph.rooms) if (r.layout) sizes[r.id] = [r.layout.width, r.layout.height];
+  for (const a of graph.areas || []) if (a.layout) sizes['area:' + a.id] = [a.layout.width, a.layout.height];
   const list: any[] = graph.entityPlacements || [];
   if (!prev || !list.length) return { graph, sizes, changed: 0 };
   const rnd = (v: number) => Math.round(v * 1e6) / 1e6 + 0, anchor = !!graph.entitySettings && graph.entitySettings.resize === 'anchor';
   let g: any = null, changed = 0;
   list.forEach((e, i) => {
-    const p = e.roomId && prev[e.roomId], s = e.roomId && sizes[e.roomId];
+    const k = e.areaId ? 'area:' + e.areaId : e.roomId, p = k && prev[k], s = k && sizes[k];
     if (!p || !s || !(p[0]! > 0) || !(p[1]! > 0) || !Array.isArray(e.position)) return;
     if (Math.abs(s[0]! - p[0]!) < 1e-9 && Math.abs(s[1]! - p[1]!) < 1e-9) return;
     if (!g) g = JSON.parse(JSON.stringify(graph));
@@ -271,20 +287,12 @@ export function moveEntities(input: { graph: any; ids: string[]; dx: number; dy:
   const g: any = JSON.parse(JSON.stringify(input.graph)), rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0;
   let n = 0;
   for (const e of g.entityPlacements || []) {
-    if (input.ids.indexOf(e.id) < 0 || !e.roomId) continue;
+    if (input.ids.indexOf(e.id) < 0 || !(e.roomId || e.areaId)) continue;
     const w = entityWorld(g, e);
     if (!w) continue;
-    const x = w.x + input.dx, y = w.y + input.dy;
-    let best: any = null, ba = Infinity;
-    for (const q of g.rooms) {
-      const L = q.layout;
-      if (!L || x < L.x - 1e-6 || x > L.x + L.width + 1e-6 || y < L.y - 1e-6 || y > L.y + L.height + 1e-6) continue;
-      const a = L.width * L.height;
-      if (a < ba - 1e-9 || (Math.abs(a - ba) <= 1e-9 && q.id < best.id)) { best = q; ba = a; }
-    }
-    const r = best || g.rooms.find((q: any) => q.id === e.roomId);
-    if (!r || !r.layout) continue;
-    e.roomId = r.id;
+    const x = w.x + input.dx, y = w.y + input.dy, r = entityHostAt(g, x, y, !!(entityCatalog()[e.type] || {}).outdoor) || entityHost(g, e);
+    if (!r) continue;
+    if (r.kind === 'area') { delete e.roomId; e.areaId = r.id; } else { delete e.areaId; e.roomId = r.id; }
     e.position = [rnd(Math.max(0, Math.min(r.layout.width, x - r.layout.x))), rnd(Math.max(0, Math.min(r.layout.height, y - r.layout.y)))];
     n++;
   }
@@ -310,22 +318,14 @@ export function pasteEntities(input: { graph: any; items: { entity: any; x: numb
   const rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0, st = input.step && input.step > 0 ? input.step : 0, sn = (v: number) => (st ? Math.round(v / st) * st : v);
   for (const it of input.items) {
     const src = it.entity;
-    if (!src || !src.roomId) continue;
-    const x = it.x + input.dx, y = it.y + input.dy;
-    let best: any = null, ba = Infinity;
-    for (const q of g.rooms) {
-      const L = q.layout;
-      if (!L || x < L.x - 1e-6 || x > L.x + L.width + 1e-6 || y < L.y - 1e-6 || y > L.y + L.height + 1e-6) continue;
-      const a = L.width * L.height;
-      if (a < ba - 1e-9 || (Math.abs(a - ba) <= 1e-9 && q.id < best.id)) { best = q; ba = a; }
-    }
-    const r = best || g.rooms.find((q: any) => q.id === src.roomId);
-    if (!r || !r.layout) continue;
+    if (!src || !(src.roomId || src.areaId)) continue;
+    const x = it.x + input.dx, y = it.y + input.dy, r = entityHostAt(g, x, y, !!(entityCatalog()[src.type] || {}).outdoor) || entityHost(g, src);
+    if (!r) continue;
     const base = String(src.id).replace(/-\d+$/, '') || 'entity';
     let id = base, n = 2;
     while (list.some(o => o.id === id)) id = base + '-' + n++;
     const e = JSON.parse(JSON.stringify(src)), ordered: any = { id };
-    e.roomId = r.id;
+    if (r.kind === 'area') { delete e.roomId; e.areaId = r.id; } else { delete e.areaId; e.roomId = r.id; }
     e.position = [rnd(Math.max(0, Math.min(r.layout.width, sn(x - r.layout.x)))), rnd(Math.max(0, Math.min(r.layout.height, sn(y - r.layout.y))))];
     for (const k of Object.keys(e)) if (!(k in ordered)) ordered[k] = e[k];
     list.push(ordered);
@@ -344,9 +344,9 @@ export function alignEntities(input: { graph: any; ids: string[]; mode: string }
   const fail = (m: string): EntityResult => ({ graph: input.graph, ok: false, message: m, id: '' });
   const items: { e: any; r: any; x: number; y: number }[] = [];
   for (const e of g.entityPlacements || []) {
-    if (input.ids.indexOf(e.id) < 0 || !e.roomId) continue;
-    const w = entityWorld(g, e), r = g.rooms.find((q: any) => q.id === e.roomId);
-    if (w && r && r.layout) items.push({ e, r, x: w.x, y: w.y });
+    if (input.ids.indexOf(e.id) < 0 || !(e.roomId || e.areaId)) continue;
+    const w = entityWorld(g, e), r = entityHost(g, e);
+    if (w && r) items.push({ e, r, x: w.x, y: w.y });
   }
   const horiz = ['left', 'hcenter', 'right', 'hdist'].indexOf(input.mode) >= 0, vert = ['top', 'vcenter', 'bottom', 'vdist'].indexOf(input.mode) >= 0, dist = input.mode === 'hdist' || input.mode === 'vdist';
   if (!horiz && !vert) return fail('Unknown align mode.');
