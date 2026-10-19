@@ -10,8 +10,8 @@ export const openingCss =
   '[data-addop].active{background:#17202a;color:#fff}body[data-addop]:not([data-addop=""]) .canvas{cursor:crosshair}.addop-ghost{stroke:#16a34a;stroke-width:.14;stroke-linecap:round;opacity:.85;pointer-events:none}';
 
 export const openingHtml =
-  '<h2>Add opening</h2><div class="card"><div class="mini">Pick a type, then click on a wall of a room. On a wall shared with another room a door or passage connects both rooms (a second one is fine); anywhere else it is an exterior opening. Windows are never connected. Uses the width and door type above.</div>' +
-  '<div class="row"><button data-addop="door">+ Door</button><button data-addop="open-passage">+ Passage</button><button data-addop="window">+ Window</button></div><div id="addop-hint" class="mini"></div></div>';
+  '<div class="card"><h2>Add connector<span class="tip" tabindex="0">i<span class="tipbox">Pick a type, then click on a wall of a room. On a wall shared with another room a door or passage connects both rooms (a second one is fine); anywhere else it is an exterior opening. Windows are never connected. Width and door type come from Settings (gear).</span></span></h2>' +
+  '<div class="row"><button data-addop="door">+ Door</button><button data-addop="open-passage">+ Passage</button><button data-addop="window">+ Window</button></div><div id="addop-hint" class="mini"></div><button id="connect-rooms" title="Connects the two selected rooms with a door in the middle of their shared wall (click one room, shift-click the other)">Connect two selected rooms</button></div>';
 
 export const openingJs = `
 let addOp=null,addGhost=null;

@@ -17,9 +17,9 @@ export const siteCss =
 
 const K = areaKinds();
 export const siteSideHtml =
-  '<div class="siteside"><div class="entbanner">Layout locked: rooms are read-only here. Areas are flat footprints outside the house.</div><h2>Add area</h2><div class="pal apal">' +
+  '<div class="siteside"><div class="entbanner">Layout locked: rooms are read-only here. Areas are flat footprints outside the house.</div><div class="card"><h2>Add area</h2><div class="pal apal">' +
   Object.keys(K).map(k => '<button data-ak="' + k + '" title="Add a ' + K[k].label.toLowerCase() + '">' + K[k].label + '</button>').join('') +
-  '</div><div id="site-hint" class="mini"></div><div id="site-inspector"></div><div id="site-count" class="mini"></div></div>';
+  '</div><div id="site-hint" class="mini"></div></div><div id="site-inspector"></div><div id="site-count" class="mini"></div></div>';
 
 export const siteJs = `
 let selA=null,siteKind=null,sact=null;
