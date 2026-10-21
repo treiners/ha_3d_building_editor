@@ -80,10 +80,11 @@ export function areaAt(graph: any, x: number, y: number): any {
   return best;
 }
 
-/** Problems of the areas (sorted by id, then code): duplicate-id, unknown-kind, too-small, overlaps-room (not for plot kinds such as garden; ellipses are sampled). */
+/** Problems of the areas (sorted by id, then code): duplicate-id, unknown-kind, too-small, overlaps-room (only rooms of the ground floor count: areas lie at ground level, upper floors may overhang them; not for plot kinds such as garden; ellipses are sampled). */
 export function validateAreas(graph: any): { id: string; code: string; message: string }[] {
   const out: { id: string; code: string; message: string }[] = [], K = areaKinds(), list: any[] = graph.areas || [], seen: Record<string, number> = {};
   const add = (id: string, code: string, message: string) => out.push({ id, code, message });
+  const ground = graph.floors && graph.floors[0] ? graph.floors[0].id : null;
   for (const a of list) {
     seen[a.id] = (seen[a.id] || 0) + 1;
     const k = K[a.kind], L = a.layout;
@@ -93,6 +94,7 @@ export function validateAreas(graph: any): { id: string; code: string; message: 
     for (const r of graph.rooms || []) {
       const R = r.layout;
       if (!R || String(r.name).toLowerCase() === 'outside') continue;
+      if (r.floor && ground && r.floor !== ground) continue;
       const x0 = Math.max(L.x, R.x), x1 = Math.min(L.x + L.width, R.x + R.width), y0 = Math.max(L.y, R.y), y1 = Math.min(L.y + L.height, R.y + R.height);
       if (x1 - x0 <= 1e-6 || y1 - y0 <= 1e-6) continue;
       let hit = a.shape !== 'ellipse';

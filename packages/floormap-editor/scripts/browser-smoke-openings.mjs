@@ -28,7 +28,7 @@ $('undo').click(); assert.equal(G().relationships.length, 1); assert.equal(conns
 // 2. exterior window on a's left wall: unpaired (orange point), selected card shows it as not connected
 click('[data-addop=window]'); ptr('pointerdown', canvas, 0.05, 1.2);
 assert.deepEqual(conns('a').find(c => c.type === 'window'), { id: 'a-left-window', roomId: 'a', side: 'left', type: 'window', position: 0.4, offset: 1.2 }); assert.equal(G().relationships.length, 2);
-assert.ok(doc.querySelector('[data-port=a-left-window].orange')); assert.match($('panel').textContent, /not connected/);
+assert.ok(doc.querySelector('[data-port=a-left-window].orange')); assert.match($('panel-conn').textContent, /not connected/);
 
 // 3. Shift keeps the type armed (exterior door on the top wall), Escape disarms
 click('[data-addop=door]'); ptr('pointerdown', canvas, 2, 0.1, { shiftKey: true }); assert.ok(conns('a').some(c => c.id === 'a-top-door')); assert.equal(w.eval('addOp'), 'door');

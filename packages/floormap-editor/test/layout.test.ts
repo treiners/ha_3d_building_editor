@@ -26,10 +26,10 @@ describe('mode + inspector layout', () => {
     assert.ok(!/[};>\s]svg\{/.test(h.slice(h.indexOf('<style>'), h.indexOf('</style>'))));
     assert.ok(h.includes('<svg width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden">'));
   });
-  it('the inspector (#panel) and the settings drawer are outside the mode sections; status moved to a bar under the canvas', () => {
+  it('the inspector (#panel) and the settings view (gear) are outside the mode sections; status moved to a bar under the canvas', () => {
     const panel = h.indexOf('id="panel"'), firstSec = h.indexOf('class="sec sec-layout"');
     assert.ok(panel > 0 && panel < firstSec);
-    assert.ok(h.indexOf('<details class="card"><summary>Settings') > h.indexOf('class="sec sec-building"'));
+    assert.ok(h.indexOf('id="gear"') > 0 && h.indexOf('id="settings-view"') > h.indexOf('id="gear"') && h.indexOf('id="settings-view"') < panel && !h.includes('<summary>Settings'));
     assert.ok(h.indexOf('class="statusbar"') > h.indexOf('id="canvas"'));
   });
 });

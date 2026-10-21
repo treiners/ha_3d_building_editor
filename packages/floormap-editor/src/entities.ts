@@ -378,6 +378,21 @@ export function updateEntities(input: { graph: any; ids: string[]; patch: any })
 export function coverageHints(graph: any): { key: string; code: string; message: string; target: { roomId?: string; connectorId?: string }; fix: { type: string; roomId?: string; connectorId?: string } }[] {
   const out: any[] = [], S = graph.entitySettings || {}, checks = S.checks || {}, ign: string[] = S.ignoredHints || [], list: any[] = graph.entityPlacements || [];
   const own = (id: string) => graph.rooms.find((x: any) => (x.connectors || []).some((p: any) => p.id === id));
+  if (checks.coverage === true) for (const r of graph.rooms) {
+    // Floor area covered by the motion sensors of the room (cone sampled on a grid, walls ignored): below 80% gives a hint.
+    const sens = list.filter(e => e.type === 'motion-sensor' && e.roomId === r.id), L = r.layout;
+    if (!L || String(r.name).toLowerCase() === 'outside' || !sens.length) continue;
+    const cat = entityCatalog()['motion-sensor'], st = Math.max(0.1, Math.sqrt((L.width * L.height) / 40000)), nx = Math.max(1, Math.floor(L.width / st)), ny = Math.max(1, Math.floor(L.height / st));
+    const cones = sens.map(e => { const w = entityWorld(graph, e), f = ((typeof e.facingDegrees === 'number' ? e.facingDegrees : cat.facingDegrees) * Math.PI) / 180, fov = typeof e.fieldOfViewDegrees === 'number' ? e.fieldOfViewDegrees : cat.fieldOfViewDegrees; return w ? { x: w.x, y: w.y, sx: Math.sin(f), sy: -Math.cos(f), fov, cos: Math.cos((Math.min(360, fov) / 2) * Math.PI / 180), range: typeof e.range === 'number' ? e.range : cat.range } : null; }).filter(Boolean) as any[];
+    if (!cones.length) continue;
+    let cov = 0;
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+      const px = L.x + ((i + 0.5) * L.width) / nx, py = L.y + ((j + 0.5) * L.height) / ny;
+      if (cones.some(k => { const dx = px - k.x, dy = py - k.y, d = Math.sqrt(dx * dx + dy * dy); return d <= k.range + 1e-9 && (k.fov >= 360 || d < 1e-9 || (dx * k.sx + dy * k.sy) / d >= k.cos - 1e-9); })) cov++;
+    }
+    const pct = Math.round((100 * cov) / (nx * ny));
+    if (pct < 80) out.push({ key: 'low-coverage|' + r.id, code: 'low-coverage', message: 'Room \"' + r.name + '\": motion sensors cover only ' + pct + '% of the floor.', target: { roomId: r.id }, fix: { type: 'motion-sensor', roomId: r.id } });
+  }
   if (checks.motion !== false) for (const r of graph.rooms) {
     if (!r.layout || String(r.name).toLowerCase() === 'outside' || list.some(e => e.type === 'motion-sensor' && e.roomId === r.id)) continue;
     out.push({ key: 'no-motion|' + r.id, code: 'no-motion', message: 'Room "' + r.name + '" has no motion sensor.', target: { roomId: r.id }, fix: { type: 'motion-sensor', roomId: r.id } });

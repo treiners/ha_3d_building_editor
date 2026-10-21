@@ -4,6 +4,36 @@ This file covers the package `floormap-editor` (formerly `room-graph-mapping-v2.
 
 ## Unreleased
 
+### Added
+- **Floor shortcuts and Fit:** PageUp / PageDown switch floors; Fit (toolbar) fits all floors.
+- **Storey height per floor** (`floors[].height`, optional; written on save together with the derived `elevation`).
+- **Stairs between floors** (`graph.stairs`, optional): a rectangle (length, width, direction) between two adjacent floors, drawn on both floors with treads and a thick bar where it lands (start on the lower floor, end on the upper); `+ Stair`, drag, panel; derived `fromRoom` / `toRoom` on save; contract check warns about ends outside rooms. Replaces the earlier room-pair link (old files are converted).
+- **See-through (key T):** draws the current floor 80 percent transparent over a stronger ghost of the floor below.
+- **Contract check before saving** (`checkContract`): panel with errors and warnings, Save anyway / Cancel; a clean file saves at once.
+- **`savedGraph`** (one function for the saved file) and a **round-trip test** (load -> save -> load -> save is identical).
+- **Image underlay** for tracing (Image, Scale, Move, opacity; per floor, never saved).
+- `docs/BACKLOG.md` (reminders: polygon rooms, individual wall heights, roof, trees).
+
+### Changed
+- Editor page title and status text say 3.1 (were "3.0 beta").
+
+## Unreleased (earlier)
+
+### Added
+- **Floors** (`docs/V3.1-FLOORS.md`): floor tabs (add empty / copy / delete / rename), dashed ghost of the floor below, *Match below* (snaps walls to the floor below with the wall solver). Optional `floors` and `room.floor`; single-floor files are unchanged.
+
+### Changed
+- CSS and the HTML shell moved out of `editor.ts` into `editor-css.ts` / `editor-shell.ts` (generated HTML is byte-identical).
+
+## 3.1.0 (2026-10-20)
+
+### Added
+- **New floor plan** button next to Load (asks first, starts with one placeholder room, Floor plan mode only).
+- **North compass** on the canvas (drag, 5 degree steps, Shift = 1 degree, double-click resets); stored as the optional `northDegrees` (clockwise from up, absent = 0).
+- **Origin on save:** *Save graph* shifts the plan so the top-left corner of the house is (0,0) (rooms, areas and plan-coordinate entities); the editor itself keeps its coordinates and never shows them.
+- **Low motion coverage hint** (entities, optional, off by default: `entitySettings.checks.coverage`): rooms whose motion sensors cover less than 80% of the floor.
+- `npm run smoke` runs every `scripts/browser-smoke*.mjs`; new smoke `browser-smoke-plan.mjs`; new tests `origin` and `coverage`.
+
 ### Changed
 - **Right-hand side as panels:** every configuration area (rooms, wall alignment, connectors, add connector, building, place / entities, add area, inspectors) is now one light grey panel with rounded corners; the name header of an inspector joins its panel.
 - **Connectors tab** (top to bottom): **Add connector** (the help text is a hover tip; the *Connect two selected rooms* button lives here), **Connectors** table, and, when a connector is selected, its **inspector as a table** (Room, Connects to, Type, Width, Door type, plus Hinge / Swing / Opening angle for doors and Sill / Head height for windows). The room panel is not shown in this tab. The table lists only the connectors of the selected room(s) (plus the selected connector); nothing selected shows all, with a note "N of M connectors". It shows 8 rows at a time and scrolls (sticky header). *Show connector widths* is on by default.

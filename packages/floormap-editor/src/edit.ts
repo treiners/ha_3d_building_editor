@@ -22,7 +22,7 @@ export function connectRooms(input: { graph: any; roomA: string; roomB: string; 
   A.connectors = A.connectors || []; B.connectors = B.connectors || [];
   const owner = (cid: string) => g.rooms.find((r: any) => (r.connectors || []).some((c: any) => c.id === cid));
   const already = g.relationships.some((l: any) => { const p = owner(l.connectorA), q = owner(l.connectorB); return !!p && !!q && ((p === A && q === B) || (p === B && q === A)); });
-  if (already) return fail(A.name + ' and ' + B.name + ' are already connected. For another door use "Add opening" in the Connectors tab.');
+  if (already) return fail(A.name + ' and ' + B.name + ' are already connected. For another door use "Add connector" in the Connectors tab.');
   const a = A.layout, b = B.layout;
   const yo = [Math.max(a.y, b.y), Math.min(a.y + a.height, b.y + b.height)], xo = [Math.max(a.x, b.x), Math.min(a.x + a.width, b.x + b.width)];
   const cands = [

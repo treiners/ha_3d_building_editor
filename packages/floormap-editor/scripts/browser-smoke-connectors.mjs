@@ -32,8 +32,9 @@ assert.ok(doc.querySelector('[data-ctype="ar"]'), 'connector panel opens when a 
 const ct = doc.querySelector('[data-ctype="ar"]'); ct.value = 'open-passage'; ev('change', ct);
 assert.equal(w.eval("g.rooms[0].connectors[0].type + '/' + g.rooms[1].connectors[0].type"), 'open-passage/open-passage');
 $('undo').click(); assert.equal(w.eval("g.rooms[1].connectors[0].type"), 'door');
-// Width bars (tickbox): one bar per connector, sized by the joint width, hidden when unticked
-assert.equal(doc.querySelectorAll('.bar').length, 0);
+// Width bars (tickbox, on by default): one bar per connector, sized by the joint width, hidden when unticked
+assert.equal($('show-bars').checked, true); assert.equal(doc.querySelectorAll('.bar').length, 2);
+$('show-bars').checked = false; w.eval('render()'); assert.equal(doc.querySelectorAll('.bar').length, 0);
 $('show-bars').checked = true; w.eval('render()'); assert.equal(doc.querySelectorAll('.bar').length, 2);
 w.eval("g.rooms[0].connectors[0].width=2;render()"); const b0 = doc.querySelector('.bar'); assert.equal(Math.abs(b0.getAttribute('y2') - b0.getAttribute('y1')), 2);
 // Ghost preview: wanted outline only when the result differs from the wanted position; affected rooms are tinted

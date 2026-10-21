@@ -1,91 +1,91 @@
-# HANDOVER: entity / sensor placement mode (next major integration)
+# HANDOVER: floormap-editor (state after entity mode, areas, add connector and the panel / settings redesign)
 
-Written at the end of the 3.0.0-beta.1 work on `packages/floormap-editor` (formerly `room-graph-mapping-v2.14-preview`; graph `schemaVersion` still `2.14`). `docs/HANDOFF.md` is the older hand-off of the floor-plan editor and is historical; this file is about the **new entity mode**. Read `CLAUDE.md` and `README.md` first (rules, commands, source map, how the embedded browser code works), then this note.
+Package `packages/floormap-editor` (formerly `room-graph-mapping-v2.14-preview`), version `3.0.0-beta.1` plus a long **Unreleased** section in `CHANGELOG.md`. The graph `schemaVersion` is still `2.14` (every addition below is an optional key). This file replaces the earlier hand-over, which only described the entity plan (now implemented). `docs/HANDOFF.md` is the old floor-plan hand-over and is historical.
 
-## 1. Goal
-A second editor mode in the same HTML app for placing **entities** (sensors, lights, contacts, ... = the link to Home Assistant) on the finished floor plan.
-- In entity mode **no floor-plan editing is possible** (no moving rooms, walls, corners, connectors, no mapper / close gaps / fit, no building values). The plan is a read-only background.
-- Entities belong to a **room** or a **connector**; later also to other objects (furniture, appliances) inside a room.
-- Positions are stored **relative to the room**, so the plan can still be changed in floor-plan mode without losing the placement. A config option may later switch to plan (global) coordinates.
-- Result is saved in the same JSON file as `entityPlacements`.
+Read in this order: `CLAUDE.md` (rules, commands, source map, how the embedded browser code works), `README.md`, this file, then the doc of the area you touch (`docs/V2.16-ENTITIES.md`, `V2.16-AREAS.md`, `V2.16-OPENINGS.md`, `V2.15-*.md`).
 
-## 2. Proposed data format
-The user's draft, kept and extended (all new fields optional, files without `entityPlacements` behave as before):
+## 1. What the editor is, in one paragraph
+A single generated HTML file (`editorHtml(raw)` in `src/editor.ts`) that turns a room graph (rooms, connectors, relationships, no coordinates) into a floor plan, lets the user refine it (move rooms, drag walls, corners, connectors, doors, windows), and since this phase also places **entities** (sensors, lights, ... = the link to Home Assistant) and **outside areas** (deck, driveway, pond ...). Premise from the user, keep it: *it is a first model the user refines by dragging, not a digital twin*. Prefer robust and predictable over clever; the exterior represents what it is, not every detail.
+
+## 2. Modes and layout of the UI
+- Header switch `Floor plan | Site | Entities` (`appMode` = `'plan' | 'site' | 'entities'`). Floor-plan editing code only runs in `plan`: the editor's own `pointerdown` returns early with `if(appMode!=='plan'||addOp)return;`.
+- Sidebar (top to bottom): head with title + **gear** (`#gear`, opens the settings view), the settings view (`#settings-view`, hidden unless `body[data-settings="1"]`, then everything else in the sidebar is hidden), app switch, tabs `Layout | Connectors | Building` (`.modes`), the entity block (`.entside`), the site block (`.siteside`), the room panel `#panel`, then the tab sections `.sec-layout`, `.sec-connectors`, `.sec-building`.
+- **Panels:** every configuration area is a `.card` (light grey, rounded). An inspector's name header (`.nm`) joins its `.card` visually. Never add a heading outside a card (a test checks the structure and that all `div` / `details` are balanced).
+- **Connectors tab, in order:** Add connector (`${openingHtml}`; help text is a hover tip; holds the `Connect two selected rooms` button), Connectors table (`#conn-table`, filtered to the selected room(s) plus the selected connector, 8 rows then scroll), connector inspector `#panel-conn` (a table, only when a connector is selected). The room panel `#panel` is hidden in the Connectors and Building tabs (CSS), shown in Layout; double-clicking a room opens Layout.
+- **Settings view sections:** Layout (`no-overlap`, `glue-touch`), Connectors (`show-bars`, `new-conn`, `new-width`, `new-door`), Entities (`ent-cov`, `ent-resize`), Interface (`classic`). The ids did not change when the options moved, so handlers keep working.
+- **Entity mode:** sidebar tabs Place | List (palette, inspector, diagnostics, coverage hints). **Site mode:** palette of area kinds + inspector. Both lock the floor plan.
+
+## 3. Source map (what is new since the old hand-over)
+| File | Role |
+|---|---|
+| `src/entities.ts` | Pure entity logic: catalogue (`entityCatalog`), `entityWorld`, `entityHost` / `entityHostAt` (room or area under a point), `nearestAnchor`, add / move / update / remove, multi-select helpers (`entitiesInBox`, `moveEntities`, `removeEntities`, `pasteEntities`, `alignEntities`, `updateEntities`), `validateEntities`, `coverageSector`, `coverageHints`, `convertEntityCoordinates`, `syncEntitySizes`, `fillEntityDefaults` |
+| `src/areas.ts` | Pure outside areas: `areaKinds`, `addArea`, `updateArea`, `removeArea` (cascades to entities), `areaAt`, `validateAreas`, `fillAreaDefaults` |
+| `src/edit.ts` | + `addOpening` (click on a wall: connected pair on a shared wall, unpaired exterior opening elsewhere, windows always unpaired); cascade in `removeRoom` / `removeConnector` (entities bound to them are deleted, message "N entities removed") |
+| `src/editor-entities.ts` | CSS / HTML / JS strings of entity mode (`entityCss`, `entitySwitchHtml`, `entitySideHtml`, `entityJs`) |
+| `src/editor-site.ts` | Site mode strings (`siteCss`, `siteSideHtml`, `siteJs`); draws areas below the rooms in every mode; **replaces `fit()`** to include areas |
+| `src/editor-openings.ts` | Add connector card + click-on-wall placement with ghost (`openingCss`, `openingHtml`, `openingJs`) |
+| `src/editor-settings.ts` | Gear, settings view, hover tip + inspector-table CSS, double-click room -> Layout |
+| `test/entities.test.ts`, `areas.test.ts`, `openings.test.ts`, `panels.test.ts` | New unit / structure tests (hand-computed arithmetic in the test names, "embedded source matches Node" parity tests) |
+| `scripts/browser-smoke-entities.mjs`, `-openings`, `-site`, `-panels`, `-connectors` (changed) | Optional jsdom end-to-end checks |
+
+Rule that makes the new files possible: **UI of a feature lives in its own `src/editor-*.ts` as strings; `editor.ts` only gets small hooks.** Do not add large code to `editor.ts` (it is one dense template string and every edit echoes whole lines).
+
+## 4. How the embedded browser code works (read before editing)
+- Pure functions are embedded into the HTML with `fn.toString()`. The list in `editor.ts` (after `fillDefaults, connectRooms, addRoom, removeRoom, removeConnector`) continues: `addOpening, areaKinds, addArea, updateArea, removeArea, areaAt, validateAreas, fillAreaDefaults, entityCatalog, entityWorld, entityHost, entityHostAt, coverageSector, nearestAnchor, addEntity, moveEntity, updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, syncEntitySizes, coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities`.
+- Rules: no value imports, no outer-scope references, helpers inside the function. **Sibling globals** are allowed only because everything is embedded together: `entityCatalog`, `entityWorld`, `entityHost`, `entityHostAt`, `updateEntity` (entities), `areaKinds` (areas), `deriveJoints` (planners). A new function that calls another embedded function works in the browser, but the parity tests build their own `new Function(...)` list: add the callee there too, or the test throws a ReferenceError.
+- **Insertion order in `editor.ts`:** CSS `${settingsCss}${openingCss}${entityCss}${siteCss}`; script `${openingJs}\n${settingsJs}\n${entityJs}\n${siteJs}\nrender();requestAnimationFrame(fit);`. The UI strings must contain **no backticks and no dollar-brace**; a degree sign in a template string is written `\\u00b0` in the TS source.
+- **`render` is wrapped three times** (assignment to the function declaration): openings (ghost bar) -> entities (syncs entity sizes first, draws the entity layer, panels) -> site (draws the area layer *before the first `[data-room]` element*, site panel). `restore` (undo / redo) is wrapped once in the entity script to reset the size map. `entSetApp` is wrapped by the site script. `fit` is **replaced** in `editor-site.ts` (and `$('fit-all').onclick` reassigned): if the original `fit` changes, change the copy too.
+- Hooks in `editor.ts` (all small): imports; the embed list; the CSS / HTML / JS insertions; the `pointerdown` guard; `entLoad()` in the load handler; save = `fillAreaDefaults(fillEntityDefaults(fillDefaults(g)))`; `panel()` fills two containers (`#panel` room, `#panel-conn` connector); `connTable` (filter + wrapper `.ctwrap`); `connCard` / `cardExtra` (table rows); `uiSync` text.
+- Entity selection model: `selE` (single id) or `selM` (Set, 2+); `selE` wins and `entLayer` reconciles. Areas: `selA`. Connectors: `selPort`. Rooms: `sel` (Set).
+- Do not name a new smoke-script variable like an existing one (`const hi` clash happened once).
+
+## 5. Data model (all optional; `schemaVersion` stays `2.14`)
 ```json
-{
-  "entitySettings": { "coordinates": "room", "gridStep": 0.1 },
-  "entityPlacements": [
-    { "id": "living-ceiling-light", "type": "light", "name": "Living ceiling light",
-      "haEntityId": "light.living_ceiling", "roomId": "living",
-      "position": [2.2, 1.3], "height": 2.2 },
-    { "id": "living-motion-sensor", "type": "motion-sensor", "roomId": "living",
-      "position": [0.2, 1.1], "height": 2.1,
-      "facingDegrees": 90, "fieldOfViewDegrees": 100, "range": 3.5 },
-    { "id": "bedroom-door-contact", "type": "door-contact",
-      "connectorId": "bedroom-front-left-door" }
-  ]
-}
+"entitySettings": { "coordinates": "room", "gridStep": 0.1, "resize": "proportional",
+                    "checks": { "motion": true, "doorContact": true }, "ignoredHints": ["no-motion|bath"] },
+"entityPlacements": [
+  { "id": "living-light", "type": "light", "roomId": "living", "position": [2.2, 1.3], "height": 2.2 },
+  { "id": "deck-camera", "type": "camera", "areaId": "deck", "position": [1, 1], "height": 2.3, "facingDegrees": 0, "fieldOfViewDegrees": 90, "range": 8 },
+  { "id": "front-door-contact", "type": "door-contact", "connectorId": "front-hall-right-door" } ],
+"areas": [ { "id": "deck", "name": "Deck", "kind": "deck", "shape": "rect", "layout": { "x": 12, "y": 2, "width": 4, "height": 3 }, "roofed": true } ]
 ```
-Rules and decisions proposed (confirm with the user):
-- **Anchor:** exactly one of `roomId` | `connectorId` (later `objectId`). Resolution order `objectId` > `connectorId` > `roomId`. For a connector the world position is the connector point (`offset` along its wall); optional `side` (`"A"` | `"B"`, which room of the pair) for later.
-- **Room-relative coordinates:** `position = [x, y]` in metres from the room's **top-left corner**, x right, y down (same axes as the plan, same as `layout`). World position = `[room.layout.x + x, room.layout.y + y]`. `entitySettings.coordinates` is `"room"` (default, also when absent) or `"plan"` (positions are global; the editor converts on load and save and warns that they go stale when rooms move). The user's draft values (e.g. `[14.2, 1.3]`) look like plan coordinates: the importer must not guess, it needs the setting (or a one-time conversion helper).
-- **Optional later:** `anchorCorner` (`tl` default | `tr` | `bl` | `br` | `center`) so an entity near the right wall follows the right wall when the room is resized.
-- **`height`:** metres above the floor, 0 .. `buildingDefaults.wallHeight`. Defaults by type from a catalogue (ceiling light = 2.2 in the draft); like everything else, *Save graph* writes the defaults explicitly (extend `fillDefaults`).
-- **Orientation:** `facingDegrees` clockwise from "up" on the plan (north, -y): 0 = up, 90 = right, direction vector `(sin a, -cos a)`. State this in the docs; the draft's `90` then means "looking right". `fieldOfViewDegrees` full opening angle, `range` metres.
-- **IDs:** `id` is the stable placement id (unique among entities, slug like `living-motion-sensor`, `-2` suffix on clash, editable). `haEntityId` (HA id such as `light.living_ceiling`) is the optional binding to Home Assistant; `name` optional label.
-- **`type` vocabulary:** data-driven catalogue (see 4). Types decide the allowed anchor, default height, extra fields and the HA domain / device class used later.
-- **Integrity:** deleting a room deletes its entities, removing a connector deletes the entities bound to it (both pure functions in `src/edit.ts` get a cascade, with a status message "N entities removed"; undo restores). Entities outside their room after a resize are kept and flagged, never silently moved.
+- **Anchor:** exactly one of `roomId`, `areaId`, `connectorId`. `position` = metres from the host's **top-left**, x right, y down. `facingDegrees` clockwise from up (0 = up, 90 = right). Positions are saved rounded to 4 decimals.
+- **Types** (`entityCatalog()`): room or area (`outdoor: true`): `light`, `motion-sensor`, `camera` (directional: facing / fov / range), `environment-sensor` (`measures`), `water-leak`; room only: `smoke-detector`, `thermostat`; connector-bound: `door-contact` (doors), `window-contact` (windows), `lock` (doors), `cover` (windows and doors). One entity per type per connector.
+- **Resize behaviour** (`entitySettings.resize`): `proportional` scales positions by new / old size per axis; `anchor` keeps the distance to a corner (nearest, or the entity's `anchorCorner`). Implemented by `syncEntitySizes` on every render (sizes remembered per room id and per `area:<id>`). Verified for the corner handle and the wall tool (both apply incrementally to `g`). **Caveat:** a future planner that replaces the whole graph from a snapshot with unscaled entity positions would break this; the Site resize applies absolute values to the current `g` for that reason.
+- **Host priority under a point** (`entityHostAt`): normal rooms (smallest) > areas (smallest, ellipse-aware, outdoor types only) > the hidden `Outside` room. Move / paste / group move re-parent across rooms and areas; align / distribute keep each entity in its own host (clamped).
+- **Cascades:** deleting a room removes its entities and those on its connectors; removing a connector removes its entities; deleting an area removes its entities. Undo restores.
+- **Connectors:** exterior doors and windows are **unpaired connectors** (orange in the editor, no relationship). A pair (two connectors + relationship) exists only where two rooms share a wall. The reference home pairs its front door with the hidden `Outside` room; `addOpening` also does that when the `Outside` rectangle touches the clicked wall.
+- **Areas:** kinds `deck`, `driveway`, `garden` (plot, may surround the house), `pond`, `path`, `other`; shapes `rect` / `ellipse`, axis aligned, minimum 0.5 m; they never take part in solvers, overlap blocking or the mapper.
 
-## 3. UX suggestion
-**App-level mode switch** in the header above the existing tabs: `Floor plan | Entities`. Everything of the current UI (tabs Layout / Connectors / Building, toolbar actions, tool and move mode, settings drawer) belongs to *Floor plan* and is hidden or disabled in *Entities*. Keep shared: undo / redo (graph snapshots already include everything), zoom / fit / grid, view switch, load / save, status bar. Show a small banner "Layout locked" in entity mode.
+## 6. Invariants (tests enforce most of them)
+All from `CLAUDE.md` still apply (determinism, locked rooms, `EPS`, `+ 0`, one undo step per gesture, no change of Free / Move rooms behaviour). Added in this phase:
+- Every new interaction has a pure test (hand-computed), an "embedded source matches Node" test and a jsdom scenario. Ids in the generated HTML are unique (checked), entity / site / panel CSS never uses a bare element selector like `svg{}`.
+- Pure entity / area functions never mutate their input graph and are order independent.
+- `Outside` is never the wall that an opening or area click hits, never flagged by coverage hints or area overlap warnings.
 
-Sidebar in entity mode, tabs **Place | List**:
-- **Palette** (Place tab): catalogue grouped (Lighting, Sensors, Contacts, Climate, ...) with search; click a type, then click in a room to place (or drag from the palette). Placement grid 0.1 m, hold Alt for free placement. Connector-bound types are placed by clicking a connector (valid targets are highlighted; type must match: door-contact on door connectors, window-contact on window connectors).
-- **Inspector** (same pattern as room / connector inspector): id, name, type, `haEntityId`, parent (room or connector, read-only), x / y fields (small, auto-apply), height, and for directional types facing / field of view / range. Trash icon next to the name.
-- **List tab:** table of all entities (name, type, parent, HA id, status icons for warnings), filters by room and type, a toggle "HA entities not placed yet" (see 5). Tapping a row selects the entity and rings it on the plan (same pattern as the connector table).
-- **Plan layer:** rooms drawn pale, no wall / corner / connector handles; entities as SVG icons (sprite, `#i-...`) with optional labels; coverage cone (field of view and range) of the **selected** entity, optional tickbox "Show coverage" for all (same pattern as the door swing and the connector width bars); handles on the plan for facing (rotate), range and field of view of the selected entity.
-- **Interactions:** drag to move (clamped inside the room; dropping into another room re-parents and recomputes the relative position), arrow keys nudge by the grid, Delete removes, background click deselects, undo / redo for every step, one undo step per finished gesture (use `rec(before)` exactly like the other gestures).
-- **Diagnostics** (a collapsible panel in the List tab): orphaned parent, outside its room, height outside 0..wallHeight, duplicate id, connector type mismatch, two contacts on the two connectors of one door, rooms without any sensor of a chosen type (later: coverage gaps).
+## 7. Decisions confirmed by the user (do not re-ask)
+Room-relative coordinates from the top-left (`entitySettings.coordinates: "room"`, written whenever the file has entities); orientation 0 = up clockwise; drag into another room re-parents automatically; entities allowed in `Outside`; coverage cone for the selected sensor plus a tickbox for all; resize behaviour as a **setting** (proportional default, anchor optional); single floor only (documented); coverage-gap checks are hints with ignore + one-click fix; multi-select with copy / paste / align / distribute; outside areas as simple rect / ellipse footprints (no polygons, rotation, terrain), entities may sit in them, garden = plot; exterior doors / windows unpaired; the connector UI order and the gear settings view as described in section 2; names **Add connector** (was Add opening), **Settings (gear)**. Working style: token-efficient, minimal questions, delegate, **focused commits per feature** (the user commits himself, I only suggest messages).
 
-## 4. Suggested implementation structure
-New pure, tested modules (same rules as the other embedded modules: no value imports, helpers inside the function, sibling globals only as documented in `CLAUDE.md`):
-- `src/entities.ts`: `ENTITY_TYPES` catalogue (inside the functions that need it, because of `toString`), `addEntity`, `moveEntity` (with re-parent), `removeEntity`, `validateEntities`, `entityWorld` (room-relative to plan and back), `coverageSector` (polygon points for facing / FOV / range), `nearestAnchor`, `fillEntityDefaults` (or extend `fillDefaults`).
-- Cascade in `removeRoom` / `removeConnector` (`src/edit.ts`).
-- **Keep `editor.ts` growth small.** It is one dense template string and every edit echoes full long lines, so put the entity-mode HTML / CSS / JS in its own file (for example `src/editor-entities.ts` exporting three strings) and concatenate them in `editor.ts` with a handful of hooks:
-  - `let appMode='plan'` (do not reuse the existing `mode`, which is `'mapping'` / `'gap'`), `document.body.dataset.app`;
-  - at the top of the `pointerdown` handler: `if(appMode==='entities')return entityPointer(e)`; same guard for keyboard shortcuts, the toolbar buttons that edit, and drag handlers;
-  - `render()` appends `entityLayer()` and the inspector hook;
-  - CSS: scope everything (`body[data-app=entities] ...`). **Never add a bare element selector like `svg{}`**: that once turned the icon sprite into a full-screen white box (there is a regression test).
-- Shared contract the entity code may rely on (all globals in the editor script): `g` (the graph, replaced on undo / load), `$`, `svg` (`#canvas`), `sel`, `selPort`, `view`, `step`, `clean`, `snap`, `room(id)`, `rect(room)` (= `layout`), `ports()`, `port(id)`, `linkFor(id)`, `len(room, side)`, `dpoint(port)` / `drect(room)` (display coordinates), `world(e)` (pointer to plan coordinates), `fit()`, `render()`, `panel()`, `rec(before)` + `hist`, `editApply(result, before, selectIds)`, `hidden()` (ids of the `Outside` room), `ICON_TRASH`, `setUi` / `uiSync` (floor-plan tabs).
-- Embed order: append the new pure functions to the list in `editor.ts` (`mapLayout, ..., fillDefaults, connectRooms, ...`) and to the order documented in `CLAUDE.md`.
-- Tests (conventions of this package): hand-computed unit tests with the arithmetic in the test name (relative to world, re-parent, cascade, validation, sector points), an "embedded source evaluates and matches Node" test, an HTML structure test (ids once, scoped CSS), and jsdom scenarios in a new smoke script (place by click, drag, rotate handle, list row ring, mode lock: wall / corner / connector drags do nothing in entity mode).
+## 8. Working here without a shell (how the last sessions worked)
+- The Filesystem connector can read / write the repo but **cannot run anything**. Workflow: copy the changed files to the sandbox (`copy_file_user_to_claude`; names collide and get a suffix like `_1`, so `cp` the newest), `npm install`, `npx tsc -p tsconfig.json`, `node --test dist/test/*.test.js`, `node scripts/browser-smoke-*.mjs` (needs `npm i jsdom`), then apply the *same* edits to the disk with `edit_file` and copy back to verify (`cmp`).
+- The sandbox only ever had **7 test files** (edit, hidden, layout, connectors, defaults, v214, foundation + the new ones; 189 tests). **Nothing has been run on the user's machine by me.** First action next time: `npm test` and every smoke script there, and record the baseline (the old `scripts/browser-smoke.mjs` failed at scenario 6d in an earlier sandbox, before and after the changes).
+- `edit_file` echoes the full diff of a changed file: avoid many edits to `editor.ts`. Three times an edit had identical old and new text (a silent no-op: an import line) - re-read the result. JSON-escape quotes (`\"`) in oldText / newText; the printed bash output shows `\"` for plain quotes.
+- jsdom: no layout (`getScreenCTM` missing -> the smoke scripts override `world=e=>({x:e.__x,y:e.__y})`), stub `setPointerCapture`, CSS is only partly evaluated (`getComputedStyle(...).display` works for simple selectors, no pixels), arrays from `w.eval` are cross-realm (`JSON.parse(w.eval('JSON.stringify(...)'))`).
+- Bugs found only by running things: a room-type placement outside every room threw a TypeError (fixed + regression check); the old connectors smoke expected width bars off by default (updated on purpose). Run the smoke scripts after any UI change.
 
-## 5. Home Assistant link (open design, keep it behind an interface)
-- Standalone (external tool): an **entity source** is a JSON / CSV file exported from HA (id, name, domain, device class, area). The List tab shows "not placed yet" entities; placing one pre-selects its type from the domain / device class and writes `haEntityId`.
-- Embedded in HA (HACS panel): the same interface fed by the HA WebSocket (`get_states`, area registry). Do not mix HA calls into the pure modules; the editor talks only to `EntitySource.list()`.
-- Icons: material design icons match HA; the existing icon sprite (11 hand-drawn icons) can be extended or replaced.
+## 9. State of the repository at hand-over
+- Everything above is on disk. **I do not know which parts are committed.** Run `git status`. Suggested focused commits in order, each with its own files: (1) entity mode core, (2) new types (camera, thermostat, lock, cover), (3) coverage hints, (4) multi-select / copy-paste / align, (5) add connector (`addOpening`), (6) areas module, (7) entities in areas, (8) Site mode + fixes, (9) panels + connector table, (10) Connectors tab order + inspector table + settings view. Docs, CHANGELOG, README and the CLAUDE.md source map were updated alongside; check their wording once you commit.
+- Test expectations changed on purpose (each confirmed with the user): label "Lock position" + "Lock size" (old), the `pointerdown` guard text (`appMode!=='plan'||addOp`), `layout.test.ts` settings assertion (gear + settings view instead of the drawer), `browser-smoke-connectors.mjs` (width bars default on).
+- Not verified visually (jsdom cannot): gear glyph (hand-written SVG path), hover tip position, grey panel look, roof hatching and label size of areas, the 8-row scroll height (28 px rows, `max-height:262px`).
 
-## 6. Decisions to confirm with the user first
-1. Room-relative from the top-left corner as default, `entityCoordinates` setting name and values, `anchorCorner` later or now?
-2. Orientation convention (0 = up, clockwise) and `height` semantics (above floor).
-3. Re-parent when an entity is dragged into another room: automatic, or confirm?
-4. Binding field name `haEntityId`, `name` optional, and which entity source to build first (file import vs HA WebSocket).
-5. MVP type list. Suggested: light, motion-sensor (facing / FOV / range), presence (mmWave, same fields), door-contact, window-contact, temperature, humidity, illuminance, smoke, water-leak, switch / button, plug, thermostat / TRV, camera (facing / FOV / range), cover / blind (window connector), lock (door connector), speaker.
-6. May entities sit in the `Outside` room (outdoor sensors)? It is hidden when drawing today.
-7. Coverage visualisation: only the selected entity, or all with a tickbox (suggested: both).
-8. Single floor only for now (the graph has no levels); say so in the docs.
+## 10. Open work (suggested order)
+1. **Objects inside rooms** (`objectId`, furniture / appliances). Plan: new optional key `objects` (rectangles with kind, size, 90 degree rotation, fixed size per kind editable); entities may bind to an object (resolution `objectId` > `connectorId` > `areaId` > `roomId`) and move with it; deleting an object re-parents its entities to the room; objects scale with the room by the same resize setting. Extend `entityHost` / `entityHostAt` once (the room / area generalization is already done).
+2. **Home Assistant entity source** (deferred on purpose): file import (JSON / CSV export: id, name, domain, device class, area) behind `EntitySource.list()`; a "not placed yet" list; placing pre-selects the type from domain / device class and writes `haEntityId`; later the WebSocket variant for a HACS panel. Keep HA calls out of the pure modules.
+3. **JSON type catalogue** (deferred): move `entityCatalog`, icon paths and the HA mapping into `src/entity-types.json` with a generic field spec (number / enum / multi with min, max, default) so new types need no code. Constraint: the embedded `entityCatalog()` has to be generated from the JSON at HTML build time (and `tsconfig` needs `resolveJsonModule`); add a schema test.
+4. **Coverage by area:** compare sensor cones with room area instead of "has a sensor".
+5. **Floor-plan backlog** (from `CLAUDE.md`): corner resize handles through the wall solver; wall alignments inside Slide / Slide + pull / wall tool; ghost preview while dragging, "Fit to neighbours"; polygon rooms (wall-graph model, schema 2.15 with migration - design together with the tester feedback). Areas would share its vertex model.
+6. Multiple floors; a documented, versioned export for the 3D editor / HA panel; decide whether the new keys justify a `schemaVersion` bump (ask the user before any schema change).
+7. Small known gaps: `connectRooms` (Connect button) is still one door per room pair, in the middle of the wall; an armed Add connector type is not cancelled by switching to another mode (it is ignored there); entities are drawn only in Entities mode; Fit includes areas, Close gaps ignores them.
 
-## 7. State of the package at hand-over (3.0.0-beta.1)
-- 179 tests (178 pass, 1 skipped), `npm test` builds with `tsc` and runs `node --test dist/test/*.test.js`. Optional jsdom checks: `scripts/browser-smoke.mjs` (older; it failed at scenario 6d in the sandbox used for the last work, before and after the changes, so run it on the real machine first and note the baseline) and `scripts/browser-smoke-connectors.mjs` (passes; covers connectors, doors, windows, building values, layout, add room, connector table).
-- Generate the editor: `node dist/examples/generate.js ../shared/reference-home-connectors.json examples/room-graph_mapping.html`.
-- *Save graph* writes every default explicitly (`src/defaults.ts`, `fillDefaults`); extend it for entity defaults.
-- Relevant docs: `README.md`, `CHANGELOG.md`, `docs/V2.15-CONNECTORS.md` (connectors, door, window, building, Close gaps, Fit), `docs/V2.15-UI.md` (layout, icons).
-
-## 8. Working notes from the last sessions
-- Rules from `CLAUDE.md` still apply: change only this package, do not change existing floor-plan behaviour (new behaviour behind a switch), ask before schema changes and before changing a regression test's expectation (the add-room side fallback and the `ignoreIds:hidden()` count were changed on request and are in the changelog).
-- Edit `src/editor.ts` only with small exact-substring replacements that match once; after each change rebuild and run the tests **from the real files on disk**. Without a shell on the user's machine the workflow was: copy the files into a sandbox, edit and test there, apply the same edits to the disk with exact-match edits, copy the files back and `cmp` them. Edits that touch the long lines of `editor.ts` echo whole lines, so keep new code in new files.
-- jsdom limits: no layout (`getScreenCTM` missing), `setPointerCapture` must be stubbed, CSS is not evaluated: call functions through `window.eval(...)` and test geometry in pure modules.
-- Gotchas met: a global `svg{}` CSS rule broke the sprite; `norm` / `setWorld` keep connectors half an opening width away from wall ends; counts of `ignoreIds:hidden()` in the editor are asserted by a test; `Outside` is a normal room that is only hidden when drawing.
-
-## 9. Starting prompt for the new chat
-> I'm continuing `packages/floormap-editor` in `ha_3d_building_editor` (filesystem access is enabled). Read `CLAUDE.md`, `README.md` and `docs/HANDOVER.md` first, run `npm test`, then work through the decisions in section 6 of the hand-over with me and implement the entity placement mode (section 3 and 4): pure `src/entities.ts` with tests first, then the mode in its own file with small hooks in `editor.ts`. Floor-plan behaviour must stay unchanged; edit `src/editor.ts` only with exact-match substring edits and verify against the files on disk.
+## 11. Starting prompt for the next chat
+> I'm continuing `packages/floormap-editor` in `ha_3d_building_editor` (filesystem access is enabled, no shell). Read `CLAUDE.md`, `README.md` and `docs/HANDOVER.md` first. Please be token efficient and ask as little as possible. First ask me to run `npm test` and the smoke scripts (`node scripts/browser-smoke-{entities,openings,site,panels,connectors}.mjs`) and tell me the result, then work through section 10 of the hand-over with me (I will give feedback from my tests first). Floor-plan behaviour must stay unchanged; new UI goes in its own `src/editor-*.ts` with small hooks in `editor.ts`; verify every change from the files on disk; suggest focused commit messages but do not commit.
