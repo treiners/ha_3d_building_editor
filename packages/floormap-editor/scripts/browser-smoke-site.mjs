@@ -24,7 +24,7 @@ assert.equal(w.eval('JSON.stringify(g.rooms.map(r=>r.layout))'), rooms0); assert
 // 2. click drops a default-size deck (4x3 centred on (12,2.1), grid 0.2 -> x 10, y 0.6), one undo step, one-shot palette
 click('[data-ak=deck]'); assert.equal(doc.body.dataset.akind, 'deck'); assert.match($('site-hint').textContent, /drop a deck/);
 ptr('pointerdown', canvas, 12, 2.1); ptr('pointerup', canvas, 12, 2.1);
-assert.deepEqual(area('deck'), { id: 'deck', name: 'Deck', kind: 'deck', shape: 'rect', layout: { x: 10, y: 0.6, width: 4, height: 3 } }); assert.equal(w.eval('selA'), 'deck'); assert.equal(doc.body.dataset.akind, '');
+assert.deepEqual(area('deck'), { id: 'deck', name: 'Deck', kind: 'deck', shape: 'rect', layout: { x: 10, y: 0.6, width: 4, height: 3 } }); assert.equal(w.eval('siteUi.selA'), 'deck'); assert.equal(doc.body.dataset.akind, '');
 $('undo').click(); assert.equal((G().areas || []).length, 0); $('redo').click(); assert.equal(G().areas.length, 1);
 
 // 3. drag a rectangle for a pond (3,6) -> (7,8.4): an ellipse 4 x 2.4
@@ -32,9 +32,9 @@ click('[data-ak=pond]'); ptr('pointerdown', canvas, 3, 6); ptr('pointermove', ca
 assert.deepEqual([area('pond').shape, area('pond').layout], ['ellipse', { x: 3, y: 6, width: 4, height: 2.4 }]);
 
 // 4. select by clicking inside the deck, drag to move (+1 m), undo; rooms stay unselectable
-ptr('pointerdown', canvas, 12, 2); ptr('pointermove', canvas, 13, 2); ptr('pointerup', canvas, 13, 2); assert.equal(area('deck').layout.x, 11); assert.equal(w.eval('selA'), 'deck');
+ptr('pointerdown', canvas, 12, 2); ptr('pointermove', canvas, 13, 2); ptr('pointerup', canvas, 13, 2); assert.equal(area('deck').layout.x, 11); assert.equal(w.eval('siteUi.selA'), 'deck');
 $('undo').click(); assert.equal(area('deck').layout.x, 10);
-ptr('pointerdown', canvas, 2, 1); ptr('pointerup', canvas, 2, 1); assert.equal(w.eval('selA'), null, 'inside a room = background'); assert.equal(w.eval('sel.size'), 0);
+ptr('pointerdown', canvas, 2, 1); ptr('pointerup', canvas, 2, 1); assert.equal(w.eval('siteUi.selA'), null, 'inside a room = background'); assert.equal(w.eval('sel.size'), 0);
 
 // 5. resize with the corner handle: br (14,3.6) -> (15,4.6) = 5 x 4
 ptr('pointerdown', canvas, 12, 2); ptr('pointerup', canvas, 12, 2);

@@ -36,7 +36,7 @@ test('render steps are registered in the historical draw order: openings, entiti
 });
 
 test('the entity size sync runs before the core render', () => {
-  at('onBeforeRender(()=>{const sy=syncEntitySizes(g,entSizes)');
+  at('onBeforeRender(()=>{const sy=syncEntitySizes(g,entUi.entSizes)');
 });
 
 test('no feature wraps render() by hand any more: only the registry replaces it', () => {
@@ -57,6 +57,6 @@ test('Load: only the registry wraps the file handler; floors splitting is an onA
 test('restore and app mode are wrapped only by the registry; entities and site register steps', () => {
   assert.equal(html.split('restore=function(').length - 1, 1);
   assert.equal(html.split('entSetApp=function(').length - 1, 1);
-  assert.ok(at('onBeforeRestore(()=>{entSizes=null})') > at('function onBeforeRestore('));
-  assert.ok(at("onBeforeAppMode(m=>{siteKind=null;") > at('function onBeforeAppMode('));
+  assert.ok(at('onBeforeRestore(()=>{entUi.entSizes=null})') > at('function onBeforeRestore('));
+  assert.ok(at("onBeforeAppMode(m=>{siteUi.siteKind=null;") > at('function onBeforeAppMode('));
 });
