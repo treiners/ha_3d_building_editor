@@ -41,6 +41,6 @@ svg.addEventListener('pointerdown',e=>{if(appMode!=='plan')return;
  drag={kind:'move',sx:p.x,sy:p.y,x:s.x,y:s.y,before:JSON.stringify(g)};render()},true);
 window.addEventListener('pointermove',e=>{if(!drag)return;const s=g.stairs.find(x=>x.id===selS);if(!s)return;const p=world(e);if(drag.kind==='size')Object.assign(s,stairResize(s,drag.fx,drag.fy,snap(p.x),snap(p.y)));else{s.x=snap(drag.x+p.x-drag.sx);s.y=snap(drag.y+p.y-drag.sy)}render()});
 window.addEventListener('pointerup',()=>{if(!drag)return;const b=drag.before;drag=null;rec(b)});
-{const r0=render;render=function(){r0.apply(this,arguments);draw();panel()}}
+onRender(()=>{draw();panel()});
 })();
 `;

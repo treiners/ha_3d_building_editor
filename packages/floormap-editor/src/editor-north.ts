@@ -21,10 +21,10 @@ function ang(e){const b=el.getBoundingClientRect();let a=Math.atan2(e.clientX-(b
 let nb=null;
 el.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();nb=JSON.stringify(g);if(el.setPointerCapture)el.setPointerCapture(e.pointerId);turn(e)});
 el.addEventListener('pointermove',e=>{if(nb!==null)turn(e)});
-el.addEventListener('pointerup',e=>{if(nb===null)return;turn(e);if(JSON.stringify(g)!==nb)rec(nb);nb=null});
+el.addEventListener('pointerup',e=>{if(nb===null)return;turn(e);if(JSON.stringify(g)!==nb){rec(nb);chrome()}nb=null});
 function turn(e){const a=ang(e);if(a===0)delete g.northDegrees;else g.northDegrees=a;northDraw()}
-el.addEventListener('dblclick',()=>{if(g.northDegrees===undefined)return;const hb=JSON.stringify(g);delete g.northDegrees;rec(hb);northDraw()});
-{const r0=render;render=function(){r0.apply(this,arguments);northDraw()}}
+el.addEventListener('dblclick',()=>{if(g.northDegrees===undefined)return;const hb=JSON.stringify(g);delete g.northDegrees;rec(hb);chrome();northDraw()});
+onRender(northDraw);
 northDraw();
 })();
 `;

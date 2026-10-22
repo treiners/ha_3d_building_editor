@@ -75,8 +75,7 @@ if(k==='roofed')patch.roofed=t.checked;else if(k==='name'||k==='kind'||k==='shap
 const r=updateArea({graph:g,id:selA,patch});entMsg(r.message);if(r.ok){g=r.graph;rec(hb)}render()});
 $('site-inspector').addEventListener('click',e=>{if(e.target.closest('#site-del'))siteDelete()});
 document.querySelectorAll('[data-ak]').forEach(b=>b.onclick=()=>siteSetKind(b.dataset.ak));
-{const s0=entSetApp;entSetApp=function(m){siteKind=null;selA=null;sact=null;document.body.dataset.akind='';if(m==='site'){selE=null;selM=new Set()}s0(m)}}
-fit=function(){const rs=g.rooms.filter(r=>r.name.toLowerCase()!=='outside').map(r=>rect(r)).concat((g.areas||[]).filter(a=>a.layout).map(a=>a.layout));if(!rs.length)return;const p=1,minX=Math.min(...rs.map(r=>r.x))-p,minY=Math.min(...rs.map(r=>r.y))-p,maxX=Math.max(...rs.map(r=>r.x+r.width))+p,maxY=Math.max(...rs.map(r=>r.y+r.height))+p;view={x:minX,y:minY,w:maxX-minX,h:maxY-minY};render()};
-$('fit-all').onclick=fit;
-{const r0=render;render=function(){r0();let n=svg.querySelector('[data-room]');while(n&&n.parentNode!==svg)n=n.parentNode;const h=siteLayer();if(h){if(n)n.insertAdjacentHTML('beforebegin',h);else svg.insertAdjacentHTML('beforeend',h)}if(appMode==='site')sitePanel()}}
+onBeforeAppMode(m=>{siteKind=null;selA=null;sact=null;document.body.dataset.akind='';if(m==='site'){selE=null;selM=new Set()}});
+// Fit (view bounds, including areas) is defined once, in the floors module.
+onRender(()=>{let n=svg.querySelector('[data-room]');while(n&&n.parentNode!==svg)n=n.parentNode;const h=siteLayer();if(h){if(n)n.insertAdjacentHTML('beforebegin',h);else svg.insertAdjacentHTML('beforeend',h)}if(appMode==='site')sitePanel()});
 `;

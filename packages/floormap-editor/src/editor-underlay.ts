@@ -34,6 +34,6 @@ svg.addEventListener('pointerdown',e=>{if(!armed||!U[key()])return;e.stopPropaga
  else drag={sx:p.x,sy:p.y,x:u.x,y:u.y}},true);
 window.addEventListener('pointermove',e=>{if(!drag)return;const p=world(e),u=U[key()];u.x=drag.x+p.x-drag.sx;u.y=drag.y+p.y-drag.sy;render()});
 window.addEventListener('pointerup',()=>{drag=null});
-{const r0=render;render=function(){r0.apply(this,arguments);udraw();ubar()}}
+onRender(()=>{udraw();ubar()});
 })();
 `;

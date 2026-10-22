@@ -156,5 +156,7 @@ document.querySelectorAll('[data-etab]').forEach(b=>b.onclick=()=>{entTab=b.data
 $('ent-list').onclick=$('ent-diag-body').onclick=e=>{const r=e.target.closest('[data-erow]');if(r){selE=r.dataset.erow;placing=null;document.body.dataset.placing='';render()}};
 $('ent-f-room').onchange=e=>{fRoom=e.target.value;render()};$('ent-f-type').onchange=e=>{fType=e.target.value;render()};
 $('ent-cov').onchange=e=>{entCov=e.target.checked;render()};
-{const rs0=restore;restore=function(s,l){entSizes=null;rs0(s,l)};const r0=render;render=function(){const sy=syncEntitySizes(g,entSizes);if(sy.changed)g=sy.graph;entSizes=sy.sizes;r0();if(appMode!=='entities')return;svg.querySelectorAll('.handle,[data-wall]').forEach(n=>n.remove());svg.insertAdjacentHTML('beforeend',entLayer());entPanel()}}
+onBeforeRestore(()=>{entSizes=null});
+onBeforeRender(()=>{const sy=syncEntitySizes(g,entSizes);if(sy.changed)g=sy.graph;entSizes=sy.sizes});
+onRender(()=>{if(appMode!=='entities')return;svg.querySelectorAll('.handle,[data-wall]').forEach(n=>n.remove());svg.insertAdjacentHTML('beforeend',entLayer());entPanel()});
 `;

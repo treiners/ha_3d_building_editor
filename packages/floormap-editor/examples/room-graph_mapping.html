@@ -1535,6 +1535,7 @@ function areaAt(graph, x, y) {
 function validateAreas(graph) {
     const out = [], K = areaKinds(), list = graph.areas || [], seen = {};
     const add = (id, code, message) => out.push({ id, code, message });
+    const ground = graph.floors && graph.floors[0] ? graph.floors[0].id : null;
     for (const a of list) {
         seen[a.id] = (seen[a.id] || 0) + 1;
         const k = K[a.kind], L = a.layout;
@@ -1551,6 +1552,8 @@ function validateAreas(graph) {
         for (const r of graph.rooms || []) {
             const R = r.layout;
             if (!R || String(r.name).toLowerCase() === 'outside')
+                continue;
+            if (r.floor && ground && r.floor !== ground)
                 continue;
             const x0 = Math.max(L.x, R.x), x1 = Math.min(L.x + L.width, R.x + R.width), y0 = Math.max(L.y, R.y), y1 = Math.min(L.y + L.height, R.y + R.height);
             if (x1 - x0 <= 1e-6 || y1 - y0 <= 1e-6)
@@ -2472,10 +2475,11 @@ function checkContract(graph) {
         else if (j.status === 'broken')
             warn('relationship-broken', 'Relationship "' + id + '" is not green' + (j.reasons && j.reasons.length ? ' (' + j.reasons.join(', ') + ')' : ''));
     }
+    const nm = (list, id) => { const f = (list || []).find((x) => x.id === id); return f && f.name && f.name !== id ? f.name + ' (' + id + ')' : id; };
     for (const e of validateEntities(graph))
-        warn('entity-' + e.code, e.message);
+        warn('entity-' + e.code, 'Entity "' + nm(graph.entityPlacements, e.id) + '": ' + e.message);
     for (const a of validateAreas(graph))
-        warn('area-' + a.code, a.message);
+        warn('area-' + a.code, 'Area "' + nm(graph.areas, a.id) + '": ' + a.message);
     return { errors, warnings };
 }
 function underlayInit(view, natW, natH) {
@@ -2539,7 +2543,19 @@ svg.addEventListener('wheel',e=>{e.preventDefault();if(e.ctrlKey||e.metaKey){con
 $('add-room').onclick=()=>{const hb=JSON.stringify(g),ct=$('new-conn').value,res=addRoom({graph:g,name:$('new-name').value,sizeCategory:$('new-size').value,nextTo:[...sel][0],side:$('new-side').value,connect:ct==='none'?'':ct,width:+$('new-width').value||undefined,doorType:$('new-door').value||undefined});editApply(res,hb,[res.id]);if(res.ok)$('new-name').value=''};
 $('connect-rooms').onclick=()=>{const ids=[...sel],hb=JSON.stringify(g);if(ids.length!==2){$('status').textContent='Select exactly two rooms (click one, shift-click the other).';return}const ct=$('new-conn').value;editApply(connectRooms({graph:g,roomA:ids[0],roomB:ids[1],type:ct==='none'?'door':ct,width:+$('new-width').value||undefined,doorType:$('new-door').value||undefined}),hb,ids)};
 function delRoom(){const ids=[...sel],hb=JSON.stringify(g);if(ids.length!==1){$('status').textContent='Select one room to delete.';return}editApply(removeRoom({graph:g,roomId:ids[0]}),hb,[])}
-document.addEventListener('click',e=>{const sc=e.target.closest('[data-selconn]');if(sc&&!e.target.closest('[data-delconn]')){selPort=sc.dataset.selconn;sel.clear();render();return}const rb=e.target.closest('[data-realign]');if(rb){realign(rb.dataset.realign);return}const db=e.target.closest('[data-delconn]');if(db){const hb=JSON.stringify(g),res=removeConnector({graph:g,connectorId:db.dataset.delconn});if(res.ok){g=res.graph;rec(hb)}$('status').textContent=res.message;render();return}const b=e.target.closest('[data-remove]');if(b){const hb=JSON.stringify(g);g.wallAlignments=g.wallAlignments.filter(a=>a.id!==b.dataset.remove);rec(hb);render()}});document.addEventListener('change',e=>{const dd=e.target.closest&&e.target.closest('[data-dhinge],[data-dswing],[data-dangle],[data-wsill],[data-whead]');if(dd){const hb=JSON.stringify(g),D=dd.dataset,c=port(D.dhinge||D.dswing||D.dangle||D.wsill||D.whead);if(!c)return;if(D.dhinge)setDoor(c,{hinge:dd.value});else if(D.dswing)setDoor(c,{swing:dd.value});else if(D.dangle)setDoor(c,{openAngle:Math.max(10,Math.min(180,Math.round(+dd.value||85)))});else setWindow(c,D.wsill?{sillHeight:+dd.value}:{headHeight:+dd.value});rec(hb);render();return}const ty=e.target.closest&&e.target.closest('[data-ctype],[data-cdoor]');if(ty){const k=ty.dataset.ctype?'ctype':'cdoor',id=ty.dataset[k],hb=JSON.stringify(g),l=linkFor(id),ids=[id];if(l)ids.push(l.connectorA===id?l.connectorB:l.connectorA);for(const x of ids){const p=port(x);if(!p)continue;if(k==='ctype')p.type=ty.value;else if(ty.value)p.doorType=ty.value;else delete p.doorType}ids.forEach(x=>{const p=port(x);if(p)norm(room(p.roomId),p)});rec(hb);render();return}const t=e.target.closest&&e.target.closest('[data-cwidth]');if(!t)return;const hb=JSON.stringify(g),v=+t.value,l=linkFor(t.dataset.cwidth),ids=[t.dataset.cwidth];if(l)ids.push(l.connectorA===ids[0]?l.connectorB:l.connectorA);for(const id of ids){const p=port(id);if(!p)continue;if(v>0)p.width=clean(v);else delete p.width}ids.forEach(id=>{const p=port(id);if(p)norm(room(p.roomId),p)});g.relationships.forEach(align);rec(hb);render()});for(const[k,key,lo,hi]of[['b-wt','wallThickness',.05,.6],['b-wh','wallHeight',2,5],['b-ft','floorThickness',.05,.6]])$(k).onchange=e=>{const v=+e.target.value;if(!(v>0)){render();return}const hb=JSON.stringify(g);g.buildingDefaults={...bd(),[key]:clean(Math.max(lo,Math.min(hi,v)))};rec(hb);render()};$('undo').onclick=undo;$('redo').onclick=redo;$('move-mode').onchange=e=>{moveMode=e.target.value;$('status').textContent=MODE_HINT[moveMode];render()};$('tool').onchange=e=>{tool=e.target.value;$('status').textContent=tool==='walls'?'Tool: Drag walls - drag a wall and the rooms next to it resize to fit. Locks, minimum/maximum sizes and doors stop it.':'Tool: Move rooms.';render()};function dl(){const a=document.createElement('a'),b=new Blob([JSON.stringify(shiftOrigin(fillAreaDefaults(fillEntityDefaults(fillDefaults(g)))),null,2)],{type:'application/json'});a.href=URL.createObjectURL(b);a.download='room-graph.json';a.click()}$('save').onclick=dl;$('load').onclick=()=>$('file').click();$('file').onchange=async e=>{try{const raw=JSON.parse(await e.target.files[0].text());if(!Array.isArray(raw.rooms)||!Array.isArray(raw.relationships))throw Error('JSON must contain rooms and relationships arrays.');g={...raw,schemaVersion:'2.14',wallAlignments:raw.wallAlignments||[],rooms:raw.rooms.map(r=>({...r,connectors:r.connectors||[]}))};g.rooms.forEach(r=>{if(r.layout){r.layout.x=clean(+r.layout.x);r.layout.y=clean(+r.layout.y);r.layout.width=clean(+r.layout.width);r.layout.height=clean(+r.layout.height)}r.connectors.forEach(p=>{if(r.layout)norm(r,p)})});const existing=g.rooms.filter(r=>r.layout).length,missing=g.rooms.length-existing;if(missing){const ids=new Set(g.rooms.filter(r=>!r.layout).map(r=>r.id));applyMap(mapLayout(g,{moveOnly:[...ids]}),ids)}entLoad();hist.clear();sel.clear();$('status').textContent='Loaded: '+existing+' stored layout(s) preserved, '+missing+' missing layout(s) mapped.';fit()}catch(err){$('status').textContent='Load error: '+err.message;alert('Load error: '+err.message)}};let uiMode='layout',lastSel=null;function setUi(m){uiMode=m;document.body.dataset.ui=m;for(const b of document.querySelectorAll('[data-ui-tab]'))b.classList.toggle('active',b.dataset.uiTab===m)}function uiSync(){for(const b of document.querySelectorAll('[data-seg]'))b.classList.toggle('active',$(b.dataset.seg).value===b.dataset.v);const cs=$('conn-summary');if(cs){const w=+$('new-width').value,d=$('new-door').value;cs.textContent='New rooms connect with: '+$('new-conn').value+(w>0?', '+w+' m':', default width')+(d?', '+d:'')+' (change in Settings)'}if(selPort&&selPort!==lastSel)setUi('connectors');lastSel=selPort}document.querySelectorAll('[data-ui-tab]').forEach(b=>b.onclick=()=>setUi(b.dataset.uiTab));document.querySelectorAll('[data-seg]').forEach(b=>b.onclick=()=>{const x=$(b.dataset.seg);x.value=b.dataset.v;x.dispatchEvent(new Event('change'))});$('classic').onchange=e=>document.body.classList.toggle('classic',e.target.checked);document.body.dataset.ui='layout';$('add-toggle').onclick=()=>{const q=$('add-panel');q.hidden=!q.hidden;if(!q.hidden)$('new-name').focus()};{const o=$('add-room').onclick;$('add-room').onclick=function(){o.call(this);if(/^Added/.test($('status').textContent))$('add-panel').hidden=true}}
+document.addEventListener('click',e=>{const sc=e.target.closest('[data-selconn]');if(sc&&!e.target.closest('[data-delconn]')){selPort=sc.dataset.selconn;sel.clear();render();return}const rb=e.target.closest('[data-realign]');if(rb){realign(rb.dataset.realign);return}const db=e.target.closest('[data-delconn]');if(db){const hb=JSON.stringify(g),res=removeConnector({graph:g,connectorId:db.dataset.delconn});if(res.ok){g=res.graph;rec(hb)}$('status').textContent=res.message;render();return}const b=e.target.closest('[data-remove]');if(b){const hb=JSON.stringify(g);g.wallAlignments=g.wallAlignments.filter(a=>a.id!==b.dataset.remove);rec(hb);render()}});document.addEventListener('change',e=>{const dd=e.target.closest&&e.target.closest('[data-dhinge],[data-dswing],[data-dangle],[data-wsill],[data-whead]');if(dd){const hb=JSON.stringify(g),D=dd.dataset,c=port(D.dhinge||D.dswing||D.dangle||D.wsill||D.whead);if(!c)return;if(D.dhinge)setDoor(c,{hinge:dd.value});else if(D.dswing)setDoor(c,{swing:dd.value});else if(D.dangle)setDoor(c,{openAngle:Math.max(10,Math.min(180,Math.round(+dd.value||85)))});else setWindow(c,D.wsill?{sillHeight:+dd.value}:{headHeight:+dd.value});rec(hb);render();return}const ty=e.target.closest&&e.target.closest('[data-ctype],[data-cdoor]');if(ty){const k=ty.dataset.ctype?'ctype':'cdoor',id=ty.dataset[k],hb=JSON.stringify(g),l=linkFor(id),ids=[id];if(l)ids.push(l.connectorA===id?l.connectorB:l.connectorA);for(const x of ids){const p=port(x);if(!p)continue;if(k==='ctype')p.type=ty.value;else if(ty.value)p.doorType=ty.value;else delete p.doorType}ids.forEach(x=>{const p=port(x);if(p)norm(room(p.roomId),p)});rec(hb);render();return}const t=e.target.closest&&e.target.closest('[data-cwidth]');if(!t)return;const hb=JSON.stringify(g),v=+t.value,l=linkFor(t.dataset.cwidth),ids=[t.dataset.cwidth];if(l)ids.push(l.connectorA===ids[0]?l.connectorB:l.connectorA);for(const id of ids){const p=port(id);if(!p)continue;if(v>0)p.width=clean(v);else delete p.width}ids.forEach(id=>{const p=port(id);if(p)norm(room(p.roomId),p)});g.relationships.forEach(align);rec(hb);render()});for(const[k,key,lo,hi]of[['b-wt','wallThickness',.05,.6],['b-wh','wallHeight',2,5],['b-ft','floorThickness',.05,.6]])$(k).onchange=e=>{const v=+e.target.value;if(!(v>0)){render();return}const hb=JSON.stringify(g);g.buildingDefaults={...bd(),[key]:clean(Math.max(lo,Math.min(hi,v)))};rec(hb);render()};$('undo').onclick=undo;$('redo').onclick=redo;$('move-mode').onchange=e=>{moveMode=e.target.value;$('status').textContent=MODE_HINT[moveMode];render()};$('tool').onchange=e=>{tool=e.target.value;$('status').textContent=tool==='walls'?'Tool: Drag walls - drag a wall and the rooms next to it resize to fit. Locks, minimum/maximum sizes and doors stop it.':'Tool: Move rooms.';render()};$('load').onclick=()=>$('file').click();$('file').onchange=async e=>{try{const raw=JSON.parse(await e.target.files[0].text());if(!Array.isArray(raw.rooms)||!Array.isArray(raw.relationships))throw Error('JSON must contain rooms and relationships arrays.');g={...raw,schemaVersion:'2.14',wallAlignments:raw.wallAlignments||[],rooms:raw.rooms.map(r=>({...r,connectors:r.connectors||[]}))};g.rooms.forEach(r=>{if(r.layout){r.layout.x=clean(+r.layout.x);r.layout.y=clean(+r.layout.y);r.layout.width=clean(+r.layout.width);r.layout.height=clean(+r.layout.height)}r.connectors.forEach(p=>{if(r.layout)norm(r,p)})});const existing=g.rooms.filter(r=>r.layout).length,missing=g.rooms.length-existing;if(missing){const ids=new Set(g.rooms.filter(r=>!r.layout).map(r=>r.id));applyMap(mapLayout(g,{moveOnly:[...ids]}),ids)}entLoad();hist.clear();sel.clear();$('status').textContent='Loaded: '+existing+' stored layout(s) preserved, '+missing+' missing layout(s) mapped.';fit()}catch(err){$('status').textContent='Load error: '+err.message;alert('Load error: '+err.message)}};let uiMode='layout',lastSel=null;function setUi(m){uiMode=m;document.body.dataset.ui=m;for(const b of document.querySelectorAll('[data-ui-tab]'))b.classList.toggle('active',b.dataset.uiTab===m)}function uiSync(){for(const b of document.querySelectorAll('[data-seg]'))b.classList.toggle('active',$(b.dataset.seg).value===b.dataset.v);const cs=$('conn-summary');if(cs){const w=+$('new-width').value,d=$('new-door').value;cs.textContent='New rooms connect with: '+$('new-conn').value+(w>0?', '+w+' m':', default width')+(d?', '+d:'')+' (change in Settings)'}if(selPort&&selPort!==lastSel)setUi('connectors');lastSel=selPort}document.querySelectorAll('[data-ui-tab]').forEach(b=>b.onclick=()=>setUi(b.dataset.uiTab));document.querySelectorAll('[data-seg]').forEach(b=>b.onclick=()=>{const x=$(b.dataset.seg);x.value=b.dataset.v;x.dispatchEvent(new Event('change'))});$('classic').onchange=e=>document.body.classList.toggle('classic',e.target.checked);document.body.dataset.ui='layout';$('add-toggle').onclick=()=>{const q=$('add-panel');q.hidden=!q.hidden;if(!q.hidden)$('new-name').focus()};{const o=$('add-room').onclick;$('add-room').onclick=function(){o.call(this);if(/^Added/.test($('status').textContent))$('add-panel').hidden=true}}
+const renderBefore=[],renderAfter=[],restoreBefore=[],appModeBefore=[],loadAfter=[];
+function onBeforeRender(fn){renderBefore.push(fn)}
+function onRender(fn){renderAfter.push(fn)}
+function onBeforeRestore(fn){restoreBefore.push(fn)}
+function onBeforeAppMode(fn){appModeBefore.push(fn)}
+function onAfterLoad(fn){loadAfter.push(fn)}
+{const r0=render;render=function(){for(const h of renderBefore)h();r0.apply(this,arguments);for(const h of renderAfter)h()}}
+{const s0=restore;restore=function(s,l){for(const h of restoreBefore)h(s,l);s0(s,l)}}
+{const a0=entSetApp;entSetApp=function(m){for(const h of appModeBefore)h(m);a0(m)}}
+{const l0=$('file').onchange;$('file').onchange=async function(e){await l0.call(this,e);for(const h of loadAfter)h()}}
+
+
 let addOp=null,addGhost=null;
 function addOpSet(t){addOp=t&&addOp!==t?t:null;addGhost=null;document.body.dataset.addop=addOp||'';document.querySelectorAll('[data-addop]').forEach(b=>b.classList.toggle('active',b.dataset.addop===addOp));$('addop-hint').textContent=addOp?'Click on a wall to place the '+(addOp==='open-passage'?'passage':addOp)+' (Shift = keep adding, Alt = free position, Esc = cancel).':'';render()}
 function addOpArgs(e){return{graph:g,type:addOp,at:world(e),width:+$('new-width').value||undefined,doorType:$('new-door').value||undefined,snap:e.altKey?0:step}}
@@ -2550,7 +2566,7 @@ render()});
 svg.addEventListener('pointermove',e=>{if(!addOp||appMode!=='plan'||mode==='gap')return;const r=addOpening(addOpArgs(e));addGhost=r.ok?{p:r.point,w:r.width,side:r.side}:null;render()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&addOp)addOpSet(null)});
 document.querySelectorAll('[data-addop]').forEach(b=>b.onclick=()=>addOpSet(b.dataset.addop));
-{const r0=render;render=function(){r0();if(addOp&&addGhost&&mode!=='gap'&&appMode==='plan'){const p=addGhost.p,h=addGhost.side==='top'||addGhost.side==='bottom',w=addGhost.w/2;svg.insertAdjacentHTML('beforeend','<line class="addop-ghost" x1="'+(h?p.x-w:p.x)+'" y1="'+(h?p.y:p.y-w)+'" x2="'+(h?p.x+w:p.x)+'" y2="'+(h?p.y:p.y+w)+'"/>')}}}
+onRender(function(){if(addOp&&addGhost&&mode!=='gap'&&appMode==='plan'){const p=addGhost.p,h=addGhost.side==='top'||addGhost.side==='bottom',w=addGhost.w/2;svg.insertAdjacentHTML('beforeend','<line class="addop-ghost" x1="'+(h?p.x-w:p.x)+'" y1="'+(h?p.y:p.y-w)+'" x2="'+(h?p.x+w:p.x)+'" y2="'+(h?p.y:p.y+w)+'"/>')}})
 
 
 function setSettings(on){document.body.dataset.settings=on?'1':'';$('gear').classList.toggle('active',on);$('gear').setAttribute('aria-pressed',on?'true':'false')}
@@ -2670,7 +2686,9 @@ document.querySelectorAll('[data-etab]').forEach(b=>b.onclick=()=>{entTab=b.data
 $('ent-list').onclick=$('ent-diag-body').onclick=e=>{const r=e.target.closest('[data-erow]');if(r){selE=r.dataset.erow;placing=null;document.body.dataset.placing='';render()}};
 $('ent-f-room').onchange=e=>{fRoom=e.target.value;render()};$('ent-f-type').onchange=e=>{fType=e.target.value;render()};
 $('ent-cov').onchange=e=>{entCov=e.target.checked;render()};
-{const rs0=restore;restore=function(s,l){entSizes=null;rs0(s,l)};const r0=render;render=function(){const sy=syncEntitySizes(g,entSizes);if(sy.changed)g=sy.graph;entSizes=sy.sizes;r0();if(appMode!=='entities')return;svg.querySelectorAll('.handle,[data-wall]').forEach(n=>n.remove());svg.insertAdjacentHTML('beforeend',entLayer());entPanel()}}
+onBeforeRestore(()=>{entSizes=null});
+onBeforeRender(()=>{const sy=syncEntitySizes(g,entSizes);if(sy.changed)g=sy.graph;entSizes=sy.sizes});
+onRender(()=>{if(appMode!=='entities')return;svg.querySelectorAll('.handle,[data-wall]').forEach(n=>n.remove());svg.insertAdjacentHTML('beforeend',entLayer());entPanel()});
 
 
 let selA=null,siteKind=null,sact=null;
@@ -2726,10 +2744,9 @@ if(k==='roofed')patch.roofed=t.checked;else if(k==='name'||k==='kind'||k==='shap
 const r=updateArea({graph:g,id:selA,patch});entMsg(r.message);if(r.ok){g=r.graph;rec(hb)}render()});
 $('site-inspector').addEventListener('click',e=>{if(e.target.closest('#site-del'))siteDelete()});
 document.querySelectorAll('[data-ak]').forEach(b=>b.onclick=()=>siteSetKind(b.dataset.ak));
-{const s0=entSetApp;entSetApp=function(m){siteKind=null;selA=null;sact=null;document.body.dataset.akind='';if(m==='site'){selE=null;selM=new Set()}s0(m)}}
-fit=function(){const rs=g.rooms.filter(r=>r.name.toLowerCase()!=='outside').map(r=>rect(r)).concat((g.areas||[]).filter(a=>a.layout).map(a=>a.layout));if(!rs.length)return;const p=1,minX=Math.min(...rs.map(r=>r.x))-p,minY=Math.min(...rs.map(r=>r.y))-p,maxX=Math.max(...rs.map(r=>r.x+r.width))+p,maxY=Math.max(...rs.map(r=>r.y+r.height))+p;view={x:minX,y:minY,w:maxX-minX,h:maxY-minY};render()};
-$('fit-all').onclick=fit;
-{const r0=render;render=function(){r0();let n=svg.querySelector('[data-room]');while(n&&n.parentNode!==svg)n=n.parentNode;const h=siteLayer();if(h){if(n)n.insertAdjacentHTML('beforebegin',h);else svg.insertAdjacentHTML('beforeend',h)}if(appMode==='site')sitePanel()}}
+onBeforeAppMode(m=>{siteKind=null;selA=null;sact=null;document.body.dataset.akind='';if(m==='site'){selE=null;selM=new Set()}});
+// Fit (view bounds, including areas) is defined once, in the floors module.
+onRender(()=>{let n=svg.querySelector('[data-room]');while(n&&n.parentNode!==svg)n=n.parentNode;const h=siteLayer();if(h){if(n)n.insertAdjacentHTML('beforebegin',h);else svg.insertAdjacentHTML('beforeend',h)}if(appMode==='site')sitePanel()});
 
 
 (function(){
@@ -2746,10 +2763,10 @@ function ang(e){const b=el.getBoundingClientRect();let a=Math.atan2(e.clientX-(b
 let nb=null;
 el.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();nb=JSON.stringify(g);if(el.setPointerCapture)el.setPointerCapture(e.pointerId);turn(e)});
 el.addEventListener('pointermove',e=>{if(nb!==null)turn(e)});
-el.addEventListener('pointerup',e=>{if(nb===null)return;turn(e);if(JSON.stringify(g)!==nb)rec(nb);nb=null});
+el.addEventListener('pointerup',e=>{if(nb===null)return;turn(e);if(JSON.stringify(g)!==nb){rec(nb);chrome()}nb=null});
 function turn(e){const a=ang(e);if(a===0)delete g.northDegrees;else g.northDegrees=a;northDraw()}
-el.addEventListener('dblclick',()=>{if(g.northDegrees===undefined)return;const hb=JSON.stringify(g);delete g.northDegrees;rec(hb);northDraw()});
-{const r0=render;render=function(){r0.apply(this,arguments);northDraw()}}
+el.addEventListener('dblclick',()=>{if(g.northDegrees===undefined)return;const hb=JSON.stringify(g);delete g.northDegrees;rec(hb);chrome();northDraw()});
+onRender(northDraw);
 northDraw();
 })();
 
@@ -2800,10 +2817,10 @@ bar.addEventListener('dblclick',e=>{const b=e.target.closest('button');if(!b||!b
 document.addEventListener('keydown',e=>{const t=e.target&&e.target.tagName;if(t==='INPUT'||t==='SELECT'||t==='TEXTAREA'||e.ctrlKey||e.metaKey||e.altKey||!g._fl)return;
  if(e.key==='PageUp'||e.key==='PageDown'){const fs=g.floors,j=fs.findIndex(f=>f.id===g._fl.cur)+(e.key==='PageUp'?1:-1);if(j<0||j>=fs.length)return;e.preventDefault();goto(fs[j].id)}
  else if((e.key==='t'||e.key==='T')&&floorsGhost(g).length){e.preventDefault();see(!seeThrough)}});
-fit=function(){const rs=(g._fl?floorsMerge(g).rooms:g.rooms).filter(r=>r.layout&&r.name.toLowerCase()!=='outside');if(!rs.length)return;const p=1,minX=Math.min(...rs.map(r=>r.layout.x))-p,minY=Math.min(...rs.map(r=>r.layout.y))-p,maxX=Math.max(...rs.map(r=>r.layout.x+r.layout.width))+p,maxY=Math.max(...rs.map(r=>r.layout.y+r.layout.height))+p;view={x:minX,y:minY,w:maxX-minX,h:maxY-minY};render()};
+fit=function(){const rs=(g._fl?floorsMerge(g).rooms:g.rooms).filter(r=>r.layout&&r.name.toLowerCase()!=='outside').map(r=>r.layout).concat((g.areas||[]).filter(a=>a.layout).map(a=>a.layout));if(!rs.length)return;const p=1,minX=Math.min(...rs.map(r=>r.x))-p,minY=Math.min(...rs.map(r=>r.y))-p,maxX=Math.max(...rs.map(r=>r.x+r.width))+p,maxY=Math.max(...rs.map(r=>r.y+r.height))+p;view={x:minX,y:minY,w:maxX-minX,h:maxY-minY};render()};
 $('fit-all').onclick=()=>fit();
-{const f0=$('file').onchange;$('file').onchange=async function(e){await f0.call(this,e);if(Array.isArray(g.floors)&&g.floors.length&&!g._fl){g=floorsSplit(g);hist.clear();reset();fit()}}}
-{const r0=render;render=function(){r0.apply(this,arguments);ghostDraw();floorBar()}}
+onAfterLoad(()=>{if(Array.isArray(g.floors)&&g.floors.length&&!g._fl){g=floorsSplit(g);hist.clear();reset();fit()}});
+onRender(()=>{ghostDraw();floorBar()});
 })();
 
 
@@ -2841,7 +2858,7 @@ svg.addEventListener('pointerdown',e=>{if(appMode!=='plan')return;
  drag={kind:'move',sx:p.x,sy:p.y,x:s.x,y:s.y,before:JSON.stringify(g)};render()},true);
 window.addEventListener('pointermove',e=>{if(!drag)return;const s=g.stairs.find(x=>x.id===selS);if(!s)return;const p=world(e);if(drag.kind==='size')Object.assign(s,stairResize(s,drag.fx,drag.fy,snap(p.x),snap(p.y)));else{s.x=snap(drag.x+p.x-drag.sx);s.y=snap(drag.y+p.y-drag.sy)}render()});
 window.addEventListener('pointerup',()=>{if(!drag)return;const b=drag.before;drag=null;rec(b)});
-{const r0=render;render=function(){r0.apply(this,arguments);draw();panel()}}
+onRender(()=>{draw();panel()});
 })();
 
 
@@ -2850,7 +2867,7 @@ const cv=document.querySelector('.canvas'),p=$('panel'),st=document.createElemen
 st.textContent='#panel.floatbox{position:absolute;right:10px;top:84px;width:250px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:6px 10px 8px;z-index:4;font-size:13px}#panel.floatbox[hidden]{display:none}#panel.floatbox .nm{background:none;border:0;padding:0;margin:0}#panel.floatbox .card{background:none;border:0;padding:0;margin:4px 0 0}#panel.floatbox .nm+.card{margin-top:4px}#panel.floatbox h2{font-size:15px;margin:2px 0}#panel.floatbox .rw input{width:56px}';
 document.head.appendChild(st);cv.style.position='relative';cv.appendChild(p);p.classList.add('floatbox');
 function sync(){p.hidden=!(room([...sel][0])&&appMode==='plan'&&!selS)}
-{const r0=render;render=function(){r0.apply(this,arguments);sync()}}
+onRender(sync);
 sync();
 })();
 
@@ -2898,7 +2915,7 @@ svg.addEventListener('pointerdown',e=>{if(!armed||!U[key()])return;e.stopPropaga
  else drag={sx:p.x,sy:p.y,x:u.x,y:u.y}},true);
 window.addEventListener('pointermove',e=>{if(!drag)return;const p=world(e),u=U[key()];u.x=drag.x+p.x-drag.sx;u.y=drag.y+p.y-drag.sy;render()});
 window.addEventListener('pointerup',()=>{drag=null});
-{const r0=render;render=function(){r0.apply(this,arguments);udraw();ubar()}}
+onRender(()=>{udraw();ubar()});
 })();
 
 render();requestAnimationFrame(fit);

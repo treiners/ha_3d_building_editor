@@ -30,5 +30,5 @@ describe('fillDefaults (what Save graph writes)', () => {
     const w = fillDefaults({ rooms: [{ id: 'a', name: 'A', connectors: [port('aw', 'a', 'top', { type: 'window', window: { sillHeight: 1 } })] }], relationships: [] }).rooms[0].connectors[0];
     assert.deepEqual(w.window, { type: 'fixed', sillHeight: 1, headHeight: 2.1, frameDepth: 0.08 }); assert.equal(w.width, 1.2);
   });
-  it('embedded in the editor and used by Save graph', () => { const h = editorHtml({ rooms: [], relationships: [] }); assert.ok(h.includes('function fillDefaults(') && h.includes('fillDefaults(g)')); });
+  it('embedded in the editor and used by Save graph', () => { const h = editorHtml({ rooms: [], relationships: [] }); assert.ok(h.includes('function fillDefaults(') && h.includes('savedGraph(g)')); });
 });
