@@ -14,7 +14,7 @@
  */
 import type { Graph, Room, Link, Alignment, Layout } from './core.js';
 
-/** Version of the file format. Files are written as '2.14' today; '3.0' is reserved for a deliberate format bump. */
+/** Version of the file format. '3.0' is written; '2.14' files are read and upgraded on load (no data changes: everything newer is optional). */
 export type SchemaVersion = '2.14' | '3.0';
 
 /** A room as saved when floors are used: `floor` is the id of its floor (absent = the first floor). */
@@ -58,9 +58,32 @@ export interface EntityPlacement {
   facingDegrees?: number; fieldOfViewDegrees?: number; range?: number;
 }
 
+/** `appliance` = things that are devices (refrigerator, washing machine, ...), `furniture` = everything else. A reader may hide furniture. */
+export type ObjectCategory = 'appliance' | 'furniture';
+
+/** What an object type is: default footprint (`width` across the front, `depth` front to back), `height`, optional `elevation` (wall mounted) and `clearance` (free space needed in front, metres). Custom types are listed in `objectTypes` with their `id`. */
+export interface ObjectTypeDef {
+  id?: string; label: string; category: ObjectCategory;
+  width: number; depth: number; height: number; elevation?: number; clearance?: number;
+}
+
+/**
+ * A physical thing in a room or area: refrigerator, oven, sofa, bed. `position` = centre of the footprint in metres from the top-left corner of the
+ * host (room or area), x right, y down. `facingDegrees` = direction the front points to, clockwise from up (0 = up on the plan, 90 = right).
+ * Width / depth / height / elevation / category default to the type; `Save graph` writes them explicitly.
+ */
+export interface ObjectPlacement {
+  id: string; type: string; name?: string;
+  roomId?: string; areaId?: string;
+  position: [number, number];
+  facingDegrees?: number;
+  width?: number; depth?: number; height?: number; elevation?: number;
+  category?: ObjectCategory;
+}
+
 /** What every floor stores while it is not the one being edited (see floors.ts). */
 export interface FloorStash {
-  rooms: FloorRoom[]; relationships: Link[]; wallAlignments: Alignment[]; entityPlacements?: EntityPlacement[];
+  rooms: FloorRoom[]; relationships: Link[]; wallAlignments: Alignment[]; entityPlacements?: EntityPlacement[]; objects?: ObjectPlacement[];
 }
 
 /** The saved file. Everything after the 2.14 core is optional. */
@@ -72,6 +95,8 @@ export type FloorplanGraph = Omit<Graph, 'schemaVersion' | 'rooms'> & {
   areas?: Area[];
   entityPlacements?: EntityPlacement[];
   entitySettings?: EntitySettings;
+  objects?: ObjectPlacement[];
+  objectTypes?: ObjectTypeDef[];
   /** Degrees the plan's "up" is rotated away from true north, 0 = absent. */
   northDegrees?: number;
 };

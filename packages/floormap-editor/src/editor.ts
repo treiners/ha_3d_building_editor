@@ -13,6 +13,7 @@ import{openingJs}from'./editor-openings.js';
 import{settingsJs}from'./editor-settings.js';
 import{areaKinds,addArea,updateArea,removeArea,areaAt,validateAreas,fillAreaDefaults}from'./areas.js';
 import{siteJs}from'./editor-site.js';
+import{objectsJs}from'./editor-objects.js';
 import{shiftOrigin}from'./origin.js';
 import{northJs}from'./editor-north.js';
 import{roomboxJs}from'./editor-roombox.js';
@@ -29,6 +30,7 @@ import{editorCss}from'./editor-css.js';
 import{shellHtml}from'./editor-shell.js';
 import{embeddedSource}from'./embed.js';
 import{hooksJs}from'./editor-hooks.js';
+import{boxesJs}from'./editor-boxes.js';
 import{coreBaseJs}from'./editor-core-base.js';
 import{coreHistoryJs}from'./editor-core-history.js';
 import{coreMovesJs}from'./editor-core-moves.js';
@@ -57,10 +59,12 @@ ${openingJs}
 ${settingsJs}
 ${entityJs}
 ${siteJs}
+${objectsJs}
 ${northJs}
 ${floorsJs}
 ${stairsJs}
 ${roomboxJs}
+${boxesJs}
 ${contractJs}
 ${underlayJs}
 render();requestAnimationFrame(fit);

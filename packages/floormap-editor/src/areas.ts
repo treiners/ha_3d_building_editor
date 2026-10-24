@@ -61,10 +61,12 @@ export function removeArea(input: { graph: any; id: string }): AreaResult {
   const g: any = JSON.parse(JSON.stringify(input.graph)), a = (g.areas || []).find((o: any) => o.id === input.id);
   if (!a) return { graph: input.graph, ok: false, message: 'No such area.', id: input.id };
   g.areas = g.areas.filter((o: any) => o.id !== input.id);
+  const og = new Set<string>((g.objects || []).filter((o: { areaId?: string }) => o.areaId === input.id).map((o: { id: string }) => o.id));
+  if (og.size) g.objects = g.objects.filter((o: { id: string }) => !og.has(o.id));
   const ne = (g.entityPlacements || []).length;
-  if (ne) g.entityPlacements = g.entityPlacements.filter((e: any) => e.areaId !== input.id);
+  if (ne) g.entityPlacements = g.entityPlacements.filter((e: any) => e.areaId !== input.id && !og.has(e.objectId));
   const nr = ne - (g.entityPlacements || []).length;
-  return { graph: g, ok: true, message: 'Deleted area "' + a.name + '".' + (nr ? ' ' + nr + (nr === 1 ? ' entity' : ' entities') + ' removed.' : ''), id: input.id };
+  return { graph: g, ok: true, message: 'Deleted area "' + a.name + '".' + (nr ? ' ' + nr + (nr === 1 ? ' entity' : ' entities') + ' removed.' : '') + (og.size ? ' ' + og.size + (og.size === 1 ? ' object' : ' objects') + ' removed.' : ''), id: input.id };
 }
 
 /** The smallest area containing the point (ellipses honour their curve); ties go to the smaller id. null when none. */

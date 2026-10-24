@@ -13,7 +13,7 @@ const el=document.createElementNS('http://www.w3.org/2000/svg','svg');el.id='nor
 $('load').insertAdjacentHTML('beforebegin','<button id="newplan" class="ib" title="New floor plan"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM14 3v5h5M12 11v6M9 14h6"/></svg></button>');
 $('newplan').onclick=()=>{if(appMode!=='plan'){$('status').textContent='Switch to Floor plan mode to start a new plan.';return}
 if(!confirm('Start a new floor plan? Unsaved changes are lost.'))return;
-g={schemaVersion:'2.14',rooms:[{id:'room-1',name:'Room 1',sizeCategory:'medium',connectors:[],layout:{x:0,y:0,width:4,height:3}}],relationships:[],wallAlignments:[]};
+g={schemaVersion:'3.0',rooms:[{id:'room-1',name:'Room 1',sizeCategory:'medium',connectors:[],layout:{x:0,y:0,width:4,height:3}}],relationships:[],wallAlignments:[]};
 entLoad();hist.clear();sel.clear();selPort=null;$('status').textContent='New floor plan: add rooms with Add room, then connect them.';fit()};
 function northDraw(){const a=+g.northDegrees||0,r=a*Math.PI/180,x=Math.sin(r)*20,y=-Math.cos(r)*20;
 el.innerHTML='<title>North is '+a+' degrees clockwise from up. Drag to turn (Shift = 1 degree steps), double-click to reset.</title><circle r="26" class="nc"/><line x1="'+(-x*.5)+'" y1="'+(-y*.5)+'" x2="'+x+'" y2="'+y+'" class="nl"/><circle cx="'+x+'" cy="'+y+'" r="5" class="nd"/><text x="'+x+'" y="'+(y+2.5)+'" class="nt">N</text>';el.setAttribute('data-north',a)}

@@ -1,6 +1,8 @@
+import type { ObjectPlacement } from './schema.js';
+
 /**
  * Floors (several storeys in one coordinate frame). Saved format: `graph.floors = [{ id, name, height?, elevation? }]` (bottom to top) and an optional
- * `room.floor` (absent = first floor); relationships, wall alignments and entities follow their rooms. Files without `floors` are single-floor
+ * `room.floor` (absent = first floor); relationships, wall alignments, entities and objects follow their rooms. Files without `floors` are single-floor
  * and unchanged. While editing, the editor keeps ONLY the current floor in `graph.rooms / relationships / wallAlignments / entityPlacements`
  * (so every planner and tool works unchanged) and stores the other floors in the working-only key `graph._fl = { cur, data: { floorId: {...} } }`
  * (inside the graph, so undo / redo restore it). `floorsMerge` turns that back into the saved format (unique ids across floors).
@@ -20,14 +22,19 @@ export function floorsSplit(graph: any): any {
   const owner = new Map<string, string>(), cOwner = new Map<string, string>();
   for (const r of g.rooms) { owner.set(r.id, fl(r)); for (const c of r.connectors || []) cOwner.set(c.id, fl(r)); }
   const data: any = {};
-  for (const id of ids) data[id] = { rooms: [], relationships: [], wallAlignments: [], entityPlacements: [] };
+  for (const id of ids) data[id] = { rooms: [], relationships: [], wallAlignments: [], entityPlacements: [], objects: [] };
   for (const r of g.rooms) { r.floor = fl(r); data[r.floor].rooms.push(r); }
   for (const l of g.relationships || []) data[cOwner.get(l.connectorA) || first].relationships.push(l);
   for (const a of g.wallAlignments || []) data[owner.get((a.roomIds || [])[0]) || first].wallAlignments.push(a);
   const keep: any[] = [];
-  for (const e of g.entityPlacements || []) { const f = e.roomId ? owner.get(e.roomId) : e.connectorId ? cOwner.get(e.connectorId) : undefined; if (f && f !== first) data[f].entityPlacements.push(e); else keep.push(e); }
+  const oOwner = new Map<string, string>();
+  for (const o of g.objects || []) if (o.roomId && owner.has(o.roomId)) oOwner.set(o.id, owner.get(o.roomId)!);
+  for (const e of g.entityPlacements || []) { const f = e.roomId ? owner.get(e.roomId) : e.connectorId ? cOwner.get(e.connectorId) : e.objectId ? oOwner.get(e.objectId) : undefined; if (f && f !== first) data[f].entityPlacements.push(e); else keep.push(e); }
   g.rooms = data[first].rooms; g.relationships = data[first].relationships; g.wallAlignments = data[first].wallAlignments;
   if (g.entityPlacements) g.entityPlacements = keep;
+  const keepO: ObjectPlacement[] = [];
+  for (const o of g.objects || []) { const f = o.roomId ? owner.get(o.roomId) : undefined; if (f && f !== first) data[f].objects.push(o); else keepO.push(o); }
+  if (g.objects) g.objects = keepO;
   delete data[first]; g._fl = { cur: first, data };
   return g;
 }
@@ -36,8 +43,8 @@ export function floorsMerge(graph: any): any {
   const g: any = JSON.parse(JSON.stringify(graph));
   if (!g._fl) return g;
   const fl = g._fl, cur = fl.cur;
-  const parts = g.floors.map((f: any) => (f.id === cur ? { id: cur, rooms: g.rooms, relationships: g.relationships, wallAlignments: g.wallAlignments, entityPlacements: g.entityPlacements || [] } : { id: f.id, ...fl.data[f.id] }));
-  const sR = new Set<string>(), sC = new Set<string>(), sL = new Set<string>(), rooms: any[] = [], rel: any[] = [], al: any[] = [], ent: any[] = [];
+  const parts = g.floors.map((f: any) => (f.id === cur ? { id: cur, rooms: g.rooms, relationships: g.relationships, wallAlignments: g.wallAlignments, entityPlacements: g.entityPlacements || [], objects: g.objects || [] } : { id: f.id, ...fl.data[f.id] }));
+  const sR = new Set<string>(), sC = new Set<string>(), sL = new Set<string>(), rooms: any[] = [], rel: any[] = [], al: any[] = [], ent: any[] = [], sO = new Set<string>(), objs: ObjectPlacement[] = [];
   const uniq = (id: string, seen: Set<string>, f: string) => { let n = id, k = 2; if (seen.has(n)) n = id + '-' + f; while (seen.has(n)) n = id + '-' + f + '-' + k++; seen.add(n); return n; };
   for (const p of parts) {
     const rm = new Map<string, string>(), cm = new Map<string, string>();
@@ -45,10 +52,14 @@ export function floorsMerge(graph: any): any {
     for (const r of p.rooms) rooms.push({ ...r, id: rm.get(r.id), floor: p.id, connectors: (r.connectors || []).map((c: any) => ({ ...c, id: cm.get(c.id), roomId: rm.get(r.id) })) });
     for (const l of p.relationships) rel.push({ ...l, id: uniq(l.id, sL, p.id), connectorA: cm.get(l.connectorA) || l.connectorA, connectorB: cm.get(l.connectorB) || l.connectorB });
     for (const a of p.wallAlignments) al.push({ ...a, roomIds: (a.roomIds || []).map((x: string) => rm.get(x) || x) });
-    for (const e of p.entityPlacements) { const n = { ...e }; if (e.roomId) n.roomId = rm.get(e.roomId) || e.roomId; if (e.connectorId) n.connectorId = cm.get(e.connectorId) || e.connectorId; ent.push(n); }
+    const om = new Map<string, string>();
+    for (const o of p.objects || []) om.set(o.id, uniq(o.id, sO, p.id));
+    for (const e of p.entityPlacements) { const n = { ...e }; if (e.roomId) n.roomId = rm.get(e.roomId) || e.roomId; if (e.connectorId) n.connectorId = cm.get(e.connectorId) || e.connectorId; if (e.objectId) n.objectId = om.get(e.objectId) || e.objectId; ent.push(n); }
+    for (const o of p.objects || []) objs.push({ ...o, id: om.get(o.id)!, ...(o.roomId ? { roomId: rm.get(o.roomId) || o.roomId } : {}) });
   }
   g.rooms = rooms; g.relationships = rel; g.wallAlignments = al;
   if (g.entityPlacements || ent.length) g.entityPlacements = ent;
+  if (g.objects || objs.length) g.objects = objs;
   delete g._fl;
   return g;
 }
@@ -57,11 +68,13 @@ export function floorsSwitch(graph: any, id: string): any {
   const g: any = JSON.parse(JSON.stringify(graph)), fl = g._fl;
   if (!fl || id === fl.cur || !fl.data[id]) return g;
   const rid = new Set<string>(g.rooms.map((r: any) => r.id)), cid = new Set<string>(g.rooms.flatMap((r: any) => (r.connectors || []).map((c: any) => c.id)));
-  const all: any[] = g.entityPlacements || [], mine = all.filter(e => (e.roomId && rid.has(e.roomId)) || (e.connectorId && cid.has(e.connectorId))), rest = all.filter(e => !mine.includes(e));
-  fl.data[fl.cur] = { rooms: g.rooms, relationships: g.relationships, wallAlignments: g.wallAlignments, entityPlacements: mine };
+  const allO: ObjectPlacement[] = g.objects || [], oMine = allO.filter((o) => o.roomId && rid.has(o.roomId)), oRest = allO.filter((o) => !oMine.includes(o)), oid = new Set<string>(oMine.map((o) => o.id));
+  const all: any[] = g.entityPlacements || [], mine = all.filter(e => (e.roomId && rid.has(e.roomId)) || (e.connectorId && cid.has(e.connectorId)) || (e.objectId && oid.has(e.objectId))), rest = all.filter(e => !mine.includes(e));
+  fl.data[fl.cur] = { rooms: g.rooms, relationships: g.relationships, wallAlignments: g.wallAlignments, entityPlacements: mine, objects: oMine };
   const t = fl.data[id]; delete fl.data[id];
   g.rooms = t.rooms; g.relationships = t.relationships; g.wallAlignments = t.wallAlignments;
   if (g.entityPlacements || t.entityPlacements.length) g.entityPlacements = [...rest, ...t.entityPlacements];
+  if (g.objects || (t.objects || []).length) g.objects = [...oRest, ...(t.objects || [])];
   fl.cur = id;
   return g;
 }
@@ -79,12 +92,12 @@ export function floorsAdd(input: { graph: any; name?: string; copy?: boolean }):
     g._fl.data[id] = {
       rooms: g.rooms.map((r: any) => ({ ...JSON.parse(JSON.stringify(r)), id: r.id + sfx, floor: id, connectors: (r.connectors || []).map((c: any) => ({ ...JSON.parse(JSON.stringify(c)), id: c.id + sfx, roomId: r.id + sfx })) })),
       relationships: g.relationships.map((l: any) => ({ ...l, id: l.id + sfx, connectorA: l.connectorA + sfx, connectorB: l.connectorB + sfx })),
-      wallAlignments: g.wallAlignments.map((a: any) => ({ ...a, id: (a.id || 'align') + sfx, roomIds: (a.roomIds || []).map((x: string) => x + sfx) })), entityPlacements: [],
+      wallAlignments: g.wallAlignments.map((a: any) => ({ ...a, id: (a.id || 'align') + sfx, roomIds: (a.roomIds || []).map((x: string) => x + sfx) })), entityPlacements: [], objects: [],
     };
   } else {
     const vis = g.rooms.filter((r: any) => r.layout && String(r.name).toLowerCase() !== 'outside');
     const x = vis.length ? Math.min(...vis.map((r: any) => r.layout.x)) : 0, y = vis.length ? Math.min(...vis.map((r: any) => r.layout.y)) : 0;
-    g._fl.data[id] = { rooms: [{ id: 'room-1' + sfx, name: 'Room 1', sizeCategory: 'medium', connectors: [], floor: id, layout: { x, y, width: 4, height: 3 } }], relationships: [], wallAlignments: [], entityPlacements: [] };
+    g._fl.data[id] = { rooms: [{ id: 'room-1' + sfx, name: 'Room 1', sizeCategory: 'medium', connectors: [], floor: id, layout: { x, y, width: 4, height: 3 } }], relationships: [], wallAlignments: [], entityPlacements: [], objects: [] };
   }
   return floorsSwitch(g, id);
 }

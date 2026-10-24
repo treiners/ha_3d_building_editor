@@ -185,10 +185,12 @@ export function removeRoom(input: { graph: any; roomId: string }): EditResult {
   g.rooms = g.rooms.filter((x: any) => x.id !== r.id);
   if (g.joints) g.joints = g.joints.filter((j: any) => !goneIds.has(j.relationshipId));
   if (g.wallAlignments) g.wallAlignments = g.wallAlignments.map((a: any) => ({ ...a, roomIds: a.roomIds.filter((i: string) => i !== r.id) })).filter((a: any) => a.roomIds.length >= 2);
+  const objGone = new Set<string>((g.objects || []).filter((o: { roomId?: string }) => o.roomId === r.id).map((o: { id: string }) => o.id));
+  if (objGone.size) g.objects = g.objects.filter((o: { id: string }) => !objGone.has(o.id));
   const ne = (g.entityPlacements || []).length;
-  if (ne) g.entityPlacements = g.entityPlacements.filter((e: any) => e.roomId !== r.id && !own.has(e.connectorId));
+  if (ne) g.entityPlacements = g.entityPlacements.filter((e: any) => e.roomId !== r.id && !own.has(e.connectorId) && !objGone.has(e.objectId));
   const nr = ne - (g.entityPlacements || []).length, ent = nr ? ' ' + nr + (nr === 1 ? ' entity' : ' entities') + ' removed.' : '';
-  return { graph: g, ok: true, message: 'Deleted "' + r.name + '" with ' + own.size + ' connector(s) and ' + gone.length + ' relationship(s).' + (left ? ' ' + left + ' connector(s) of neighbours are now not connected.' : '') + ent, id: r.id };
+  return { graph: g, ok: true, message: 'Deleted "' + r.name + '" with ' + own.size + ' connector(s) and ' + gone.length + ' relationship(s).' + (left ? ' ' + left + ' connector(s) of neighbours are now not connected.' : '') + ent + (objGone.size ? ' ' + objGone.size + (objGone.size === 1 ? ' object' : ' objects') + ' removed.' : ''), id: r.id };
 }
 
 /** Removes a connector and its relationship; by default the partner connector in the other room as well (a door is one pair). */

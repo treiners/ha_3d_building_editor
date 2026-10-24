@@ -36,5 +36,13 @@ Guidance: `HANDOVER-REFACTORING.md`. This file tracks decisions, baseline and st
 - Golden hash of `examples/room-graph_mapping.html`:
 - Count of `ignoreIds:hidden()` in generated HTML (must stay 7):
 
+## Follow-up work after step 6 (user requests)
+- File-format document: `src/file-format-doc.ts` generates `docs/FILE-FORMAT.md` (`npm run docs:format`); `test/file-format-doc.test.ts` fails when the document differs from the code or a saved field is undocumented (written, awaiting run).
+- Stair box: the delete control is the trash icon (`ICON_TRASH`) instead of a cross (written, awaiting run).
+- Schema version 3.0 (done, awaiting run): `migrate`, the new-plan handler and the Load handler write `3.0`; `Graph.schemaVersion` allows both. Tests that pin `2.14` in an OUTPUT will fail and need the user's OK (expectation change).
+- Connector box and entity box (written, awaiting run): `src/editor-boxes.ts` moves `#panel-conn` and `#ent-inspector` onto the canvas as floating boxes (room-box pattern), shared tidy layout, structure tests in `test/boxes.test.ts`. The connector table, alignments and the entity place / list tabs stay in the sidebar. Needs a look in a real browser (jsdom has no layout).
+- Objects (appliances, furniture), phase 1 of 6 (written, awaiting run): data model, pure module `src/objects.ts`, floors / delete / save / contract integration, generated format document, `docs/V2.17-OBJECTS.md`. No UI yet. Verified in a sandbox mirror: strict compile of the touched modules and 36 new tests green; the full suite, golden update and smoke are still to be run on the real machine.
+- Open: option 4+ from the follow-up list (typing floors / stairs / areas / entities, remaining state).
+
 ## Step log
 - Step 1: editor.ts line with the hand-written function list replaced by `${embeddedSource()}`; old per-module embed tests left in place (remove later, needs user OK). Unused value imports remain in editor.ts (cleanup candidate, tsc does not flag them).

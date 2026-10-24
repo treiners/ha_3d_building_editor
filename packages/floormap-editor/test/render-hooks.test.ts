@@ -29,7 +29,8 @@ test('render steps are registered in the historical draw order: openings, entiti
     'onRender(northDraw)',
     'onRender(()=>{ghostDraw();floorBar()})',
     'onRender(()=>{draw();panel()})',
-    'onRender(sync)',
+    "function sync(){p.hidden=!(room(",
+    "const cb=$('panel-conn')",
     'onRender(()=>{udraw();ubar()})',
   ].map(at);
   assert.deepEqual(order, [...order].sort((a, b) => a - b));

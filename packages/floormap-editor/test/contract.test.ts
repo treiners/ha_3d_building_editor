@@ -4,6 +4,7 @@ import { checkContract } from '../src/contract.js';
 import { deriveJoints } from '../src/joints.js';
 import { validateEntities, entityCatalog } from '../src/entities.js';
 import { validateAreas, areaKinds } from '../src/areas.js';
+import { validateObjects, objectDefs, objectCatalog, objectHost, objectFootprint } from '../src/objects.js';
 import { stairsHost, stairBar, stairRect } from '../src/stairs.js';
 
 const room = (id: string, x: number, floor?: string): any => ({ id, name: id, ...(floor ? { floor } : {}), connectors: [{ id: id + '-c', roomId: id, side: x === 0 ? 'right' : 'left', type: 'door', offset: 1.5 }], layout: { x, y: 0, width: 4, height: 3 } });
@@ -39,8 +40,8 @@ describe('contract check of a saved graph', () => {
     assert.ok(direct.length > 0); assert.deepEqual(r.warnings.filter(w => w.code.startsWith('entity-')).map(w => w.message), direct.map(d => 'Entity "' + d.id + '": ' + d.message));
     assert.deepEqual(r.warnings.filter(w => w.code.startsWith('area-')).length, validateAreas(g).length);
   });
-  it('embedded source evaluates and matches Node (siblings deriveJoints / validateEntities / validateAreas and their helpers entityCatalog / areaKinds)', () => {
-    const E: any = new Function(deriveJoints.toString() + '\n' + stairRect.toString() + '\n' + stairBar.toString() + '\n' + stairsHost.toString() + '\n' + entityCatalog.toString() + '\n' + areaKinds.toString() + '\n' + validateEntities.toString() + '\n' + validateAreas.toString() + '\n' + checkContract.toString() + '\nreturn checkContract;')();
+  it('embedded source evaluates and matches Node (siblings deriveJoints / validateEntities / validateAreas / validateObjects and their helpers entityCatalog / areaKinds / objectDefs / objectCatalog / objectHost / objectFootprint)', () => {
+    const E: any = new Function(deriveJoints.toString() + '\n' + stairRect.toString() + '\n' + stairBar.toString() + '\n' + stairsHost.toString() + '\n' + entityCatalog.toString() + '\n' + areaKinds.toString() + '\n' + validateEntities.toString() + '\n' + validateAreas.toString() + '\n' + objectCatalog.toString() + '\n' + objectDefs.toString() + '\n' + objectFootprint.toString() + '\n' + objectHost.toString() + '\n' + validateObjects.toString() + '\n' + checkContract.toString() + '\nreturn checkContract;')();
     assert.deepEqual(E(base()), checkContract(base()));
   });
 });

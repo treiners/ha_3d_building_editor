@@ -3,21 +3,25 @@
  * `entityPlacements`. Every mutating function returns a NEW graph (the input is never mutated).
  * Positions are room-relative: metres from the room's top-left corner, x right, y down. `facingDegrees` is clockwise
  * from "up" on the plan (0 = up/-y, 90 = right), direction vector (sin a, -cos a).
- * Embedded into the editor HTML with toString(): no imports, helpers live inside the functions; sibling globals (all embedded together): `entityCatalog`, `entityWorld`, `updateEntity`.
+ * Embedded into the editor HTML with toString(): no imports, helpers live inside the functions; sibling globals (all embedded together): `entityCatalog`, `entityWorld`, `updateEntity`, `entityObjectFrame`, `objectHost`, `objectDefs`.
+ * Objects (v2.17 phase 5): an entity with `objectId` (instead of roomId / areaId / connectorId) sits ON an object. `position` = metres from the object's CENTRE in the object's own frame (x along its width, y along its depth, so it follows the object when that is moved or rotated); only types with `onObject` in the catalogue fit.
  */
+import { objectHost, objectDefs, type ObjectGraph } from './objects.js';
+import type { ObjectPlacement } from './schema.js';
+
 export interface EntityResult { graph: any; ok: boolean; message: string; id: string }
 
 /** Type catalogue. `anchor`: 'room' (position inside a room) or 'connector' (bound to a connector). */
 export function entityCatalog(): Record<string, any> {
   return {
-    light: { label: 'Light', anchor: 'room', outdoor: true, height: 2.2, directional: false },
-    'motion-sensor': { label: 'Motion sensor', anchor: 'room', outdoor: true, height: 2.1, directional: true, facingDegrees: 0, fieldOfViewDegrees: 100, range: 3.5 },
-    camera: { label: 'Camera', anchor: 'room', outdoor: true, height: 2.3, directional: true, facingDegrees: 0, fieldOfViewDegrees: 90, range: 8 },
-    'environment-sensor': { label: 'Environment sensor', anchor: 'room', outdoor: true, height: 1.5, directional: false, multi: { field: 'measures', options: ['temperature', 'humidity', 'co2', 'illuminance', 'pressure', 'voc'], default: ['temperature', 'humidity'] } },
+    light: { label: 'Light', anchor: 'room', outdoor: true, onObject: true, height: 2.2, directional: false },
+    'motion-sensor': { label: 'Motion sensor', anchor: 'room', outdoor: true, onObject: true, height: 2.1, directional: true, facingDegrees: 0, fieldOfViewDegrees: 100, range: 3.5 },
+    camera: { label: 'Camera', anchor: 'room', outdoor: true, onObject: true, height: 2.3, directional: true, facingDegrees: 0, fieldOfViewDegrees: 90, range: 8 },
+    'environment-sensor': { label: 'Environment sensor', anchor: 'room', outdoor: true, onObject: true, height: 1.5, directional: false, multi: { field: 'measures', options: ['temperature', 'humidity', 'co2', 'illuminance', 'pressure', 'voc'], default: ['temperature', 'humidity'] } },
     'smoke-detector': { label: 'Smoke / fire detector', anchor: 'room', height: 2.3, directional: false },
     thermostat: { label: 'Thermostat / TRV', anchor: 'room', height: 1.5, directional: false },
-    'water-leak': { label: 'Water leak sensor', anchor: 'room', outdoor: true, height: 0.1, directional: false },
-    'door-contact': { label: 'Door contact', anchor: 'connector', connectorTypes: ['door'], directional: false },
+    'water-leak': { label: 'Water leak sensor', anchor: 'room', outdoor: true, onObject: true, height: 0.1, directional: false },
+    'door-contact': { label: 'Door contact', anchor: 'connector', connectorTypes: ['door'], onObject: true, directional: false },
     'window-contact': { label: 'Window contact', anchor: 'connector', connectorTypes: ['window'], directional: false },
     lock: { label: 'Lock', anchor: 'connector', connectorTypes: ['door'], directional: false },
     cover: { label: 'Blind / cover', anchor: 'connector', connectorTypes: ['window', 'door'], directional: false },
@@ -61,9 +65,38 @@ export function entityWorld(graph: any, e: any): { x: number; y: number; roomId:
     }
     return null;
   }
+  if (e.objectId) {
+    const f = entityObjectFrame(graph, e);
+    if (!f || !Array.isArray(e.position)) return null;
+    const px = e.position[0], py = e.position[1];
+    return { x: rnd(f.cx + px * f.co - py * f.s), y: rnd(f.cy + px * f.s + py * f.co), roomId: f.host.kind === 'room' ? f.host.id : '', ...(f.host.kind === 'area' ? { areaId: f.host.id } : {}) };
+  }
   const h = e.areaId ? (graph.areas || []).find((x: any) => x.id === e.areaId) : graph.rooms.find((x: any) => x.id === e.roomId);
   if (!h || !h.layout || !Array.isArray(e.position)) return null;
   return e.areaId ? { x: rnd(h.layout.x + e.position[0]), y: rnd(h.layout.y + e.position[1]), roomId: '', areaId: h.id } : { x: rnd(h.layout.x + e.position[0]), y: rnd(h.layout.y + e.position[1]), roomId: h.id };
+}
+
+/** The frame of the object an entity sits on: centre in plan coordinates, rotation (cos / sin of the facing), half width / depth, the object and its host; null when the object is missing or unplaced. */
+export function entityObjectFrame(graph: ObjectGraph, e: { objectId?: string }): { cx: number; cy: number; co: number; s: number; hw: number; hd: number; obj: ObjectPlacement; host: NonNullable<ReturnType<typeof objectHost>> } | null {
+  const o = (graph.objects || []).find((x) => x.id === e.objectId), h = o && objectHost(graph, o);
+  if (!o || !h) return null;
+  const d = objectDefs(graph)[o.type], a = (((o.facingDegrees || 0) % 360) * Math.PI) / 180;
+  return { cx: h.x + o.position[0], cy: h.y + o.position[1], co: Math.cos(a), s: Math.sin(a), hw: (o.width ?? d?.width ?? 0.5) / 2, hd: (o.depth ?? d?.depth ?? 0.5) / 2, obj: o, host: h };
+}
+
+/** Entity types worth offering on an object of this type id (matched by keywords, so custom types work too), only types that fit objects; never empty. */
+export function entitySuggestions(objectType: string): string[] {
+  const t = String(objectType).toLowerCase(), cat = entityCatalog(), out: string[] = [];
+  const rules: [RegExp, string[]][] = [
+    [/fridge|refrigerator|freezer/, ['door-contact', 'environment-sensor']],
+    [/wash|dish|dryer|boiler|heater|tank|sink/, ['water-leak']],
+    [/wardrobe|cabinet|cupboard|closet/, ['door-contact', 'light']],
+    [/bed|sofa|couch|armchair|chair/, ['motion-sensor']],
+    [/tv|desk|table|shelf|lamp/, ['light']],
+  ];
+  for (const [re, types] of rules) if (re.test(t)) for (const x of types) if (out.indexOf(x) < 0) out.push(x);
+  for (const x of ['light', 'environment-sensor', 'motion-sensor']) if (out.length < 3 && out.indexOf(x) < 0) out.push(x);
+  return out.filter((x) => cat[x] && cat[x].onObject);
 }
 
 /** Polygon (apex first, then the arc) of the coverage sector; angles per `facingDegrees` convention. */
@@ -98,7 +131,7 @@ export function nearestAnchor(graph: any, type: string, x: number, y: number, ma
 }
 
 /** Adds an entity. Room types: roomId + `position` ([x,y] relative) or `at` (world point); connector types: connectorId. */
-export function addEntity(input: { graph: any; type: string; roomId?: string; areaId?: string; connectorId?: string; position?: number[]; at?: { x: number; y: number }; name?: string; id?: string; haEntityId?: string; step?: number }): EntityResult {
+export function addEntity(input: { graph: any; type: string; roomId?: string; areaId?: string; connectorId?: string; objectId?: string; position?: number[]; at?: { x: number; y: number }; name?: string; id?: string; haEntityId?: string; step?: number }): EntityResult {
   const g: any = JSON.parse(JSON.stringify(input.graph));
   const fail = (m: string): EntityResult => ({ graph: input.graph, ok: false, message: m, id: '' });
   const rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0;
@@ -108,7 +141,21 @@ export function addEntity(input: { graph: any; type: string; roomId?: string; ar
   const wallH = g.buildingDefaults?.wallHeight ?? 2.4;
   const e: any = { id: '', type: input.type };
   let anchorId = '';
-  if (cat.anchor === 'connector') {
+  if (input.objectId) {
+    if (!cat.onObject) return fail(cat.label + ' cannot be placed on an object.');
+    const f = entityObjectFrame(g, { objectId: input.objectId });
+    if (!f) return fail('Pick a placed object.');
+    if (cat.anchor === 'connector' && list.some(o => o.type === input.type && o.objectId === input.objectId)) return fail('That object already has a ' + cat.label.toLowerCase() + '.');
+    const st = input.step && input.step > 0 ? input.step : 0;
+    let p = input.position ? [input.position[0]!, input.position[1]!] : input.at ? [(input.at.x - f.cx) * f.co + (input.at.y - f.cy) * f.s, -(input.at.x - f.cx) * f.s + (input.at.y - f.cy) * f.co] : [0, 0];
+    if (st) p = p.map(v => Math.round(v / st) * st);
+    const od = objectDefs(g)[f.obj.type];
+    e.objectId = input.objectId; anchorId = input.objectId;
+    e.position = [rnd(Math.max(-f.hw, Math.min(f.hw, p[0]!))), rnd(Math.max(-f.hd, Math.min(f.hd, p[1]!)))];
+    e.height = rnd(Math.min((f.obj.elevation ?? od?.elevation ?? 0) + (f.obj.height ?? od?.height ?? 0.5), wallH));
+    if (cat.directional) { e.facingDegrees = cat.facingDegrees; e.fieldOfViewDegrees = cat.fieldOfViewDegrees; e.range = cat.range; }
+    if (cat.multi) e[cat.multi.field] = cat.multi.default.slice();
+  } else if (cat.anchor === 'connector') {
     const owner = g.rooms.find((r: any) => (r.connectors || []).some((c: any) => c.id === input.connectorId));
     const c = owner && owner.connectors.find((p: any) => p.id === input.connectorId);
     if (!c) return fail(cat.label + ' needs a connector.');
@@ -149,6 +196,13 @@ export function moveEntity(input: { graph: any; id: string; x: number; y: number
   const e = (g.entityPlacements || []).find((o: any) => o.id === input.id);
   if (!e) return fail('No such entity.');
   if (e.connectorId) return fail('Connector entities follow their connector.');
+  if (e.objectId) {
+    const f = entityObjectFrame(g, e);
+    if (!f) return fail('The object is missing.');
+    const st0 = input.step && input.step > 0 ? input.step : 0, sn0 = (v: number) => (st0 ? Math.round(v / st0) * st0 : v), dx = input.x - f.cx, dy = input.y - f.cy;
+    e.position = [rnd(Math.max(-f.hw, Math.min(f.hw, sn0(dx * f.co + dy * f.s)))), rnd(Math.max(-f.hd, Math.min(f.hd, sn0(-dx * f.s + dy * f.co))))];
+    return { graph: g, ok: true, message: 'Moved.', id: e.id };
+  }
   const cat = entityCatalog()[e.type] || {};
   const r = entityHostAt(g, input.x, input.y, !!cat.outdoor) || entityHost(g, e);
   if (!r) return fail('The entity has no room or area.');
@@ -178,7 +232,11 @@ export function updateEntity(input: { graph: any; id: string; patch: any }): Ent
     const r = entityHost(g, e), x = num(P.position[0]), y = num(P.position[1]);
     if (r && !isNaN(x) && !isNaN(y)) e.position = [rnd(Math.max(0, Math.min(r.layout.width, x))), rnd(Math.max(0, Math.min(r.layout.height, y)))];
   }
-  if ((e.roomId || e.areaId) && !isNaN(num(P.height))) e.height = rnd(Math.max(0, Math.min(wallH, P.height)));
+  if (e.objectId && Array.isArray(P.position)) {
+    const f = entityObjectFrame(g, e), x = num(P.position[0]), y = num(P.position[1]);
+    if (f && !isNaN(x) && !isNaN(y)) e.position = [rnd(Math.max(-f.hw, Math.min(f.hw, x))), rnd(Math.max(-f.hd, Math.min(f.hd, y)))];
+  }
+  if ((e.roomId || e.areaId || e.objectId) && !isNaN(num(P.height))) e.height = rnd(Math.max(0, Math.min(wallH, P.height)));
   if (cat.directional) {
     if (!isNaN(num(P.facingDegrees))) e.facingDegrees = rnd(((P.facingDegrees % 360) + 360) % 360);
     if (!isNaN(num(P.fieldOfViewDegrees))) e.fieldOfViewDegrees = rnd(Math.max(10, Math.min(360, P.fieldOfViewDegrees)));
@@ -197,7 +255,7 @@ export function removeEntity(input: { graph: any; id: string }): EntityResult {
   return { graph: g, ok: true, message: 'Removed "' + input.id + '".', id: input.id };
 }
 
-/** Checks every entity; issues are sorted by id, then code. Codes: unknown-type, orphan, no-layout, outside-room, height-range, duplicate-id, type-mismatch, double-contact. */
+/** Checks every entity; issues are sorted by id, then code. Codes: unknown-type, orphan, no-layout, outside-room, outside-object, height-range, duplicate-id, type-mismatch, double-contact. */
 export function validateEntities(graph: any): { id: string; code: string; message: string }[] {
   const out: { id: string; code: string; message: string }[] = [], cat = entityCatalog(), list: any[] = graph.entityPlacements || [], wallH = graph.buildingDefaults?.wallHeight ?? 2.4;
   const seen: Record<string, number> = {}, contactDoors: Record<string, string[]> = {};
@@ -207,10 +265,19 @@ export function validateEntities(graph: any): { id: string; code: string; messag
     seen[id] = (seen[id] || 0) + 1;
     const c = cat[e.type];
     if (!c) { add(id, 'unknown-type', 'Unknown type "' + e.type + '".'); return; }
-    if ((e.roomId ? 1 : 0) + (e.areaId ? 1 : 0) + (e.connectorId ? 1 : 0) !== 1) { add(id, 'orphan', 'Needs exactly one of roomId / areaId / connectorId.'); return; }
-    if (c.anchor === 'connector' && !e.connectorId) add(id, 'type-mismatch', c.label + ' must be bound to a connector.');
-    if (c.anchor === 'room' && !e.roomId && !e.areaId) add(id, 'type-mismatch', c.label + ' must sit in a room.');
+    if ((e.roomId ? 1 : 0) + (e.areaId ? 1 : 0) + (e.connectorId ? 1 : 0) + (e.objectId ? 1 : 0) !== 1) { add(id, 'orphan', 'Needs exactly one of roomId / areaId / connectorId / objectId.'); return; }
+    if (c.anchor === 'connector' && !e.connectorId && !e.objectId) add(id, 'type-mismatch', c.label + ' must be bound to a connector.');
+    if (c.anchor === 'room' && !e.roomId && !e.areaId && !e.objectId) add(id, 'type-mismatch', c.label + ' must sit in a room.');
+    if (e.objectId && !c.onObject) add(id, 'type-mismatch', c.label + ' cannot be placed on an object.');
     if (e.areaId && !c.outdoor) add(id, 'type-mismatch', c.label + ' cannot be placed in an area.');
+    if (e.objectId) {
+      const f = entityObjectFrame(graph, e);
+      if (!f) { add(id, 'orphan', 'Object "' + e.objectId + '" does not exist.'); return; }
+      const p = e.position;
+      if (!Array.isArray(p) || Math.abs(p[0]) > f.hw + 1e-6 || Math.abs(p[1]) > f.hd + 1e-6) add(id, 'outside-object', 'Position is outside the object.');
+      if (typeof e.height === 'number' && (e.height < 0 || e.height > wallH + 1e-6)) add(id, 'height-range', 'Height ' + e.height + ' m is outside 0..' + wallH + ' m.');
+      return;
+    }
     if (e.connectorId) {
       const owner = graph.rooms.find((r: any) => (r.connectors || []).some((p: any) => p.id === e.connectorId));
       const p = owner && owner.connectors.find((q: any) => q.id === e.connectorId);
@@ -380,7 +447,7 @@ export function coverageHints(graph: any): { key: string; code: string; message:
   const own = (id: string) => graph.rooms.find((x: any) => (x.connectors || []).some((p: any) => p.id === id));
   if (checks.coverage === true) for (const r of graph.rooms) {
     // Floor area covered by the motion sensors of the room (cone sampled on a grid, walls ignored): below 80% gives a hint.
-    const sens = list.filter(e => e.type === 'motion-sensor' && e.roomId === r.id), L = r.layout;
+    const sens = list.filter(e => e.type === 'motion-sensor' && (e.roomId === r.id || (e.objectId && (entityWorld(graph, e) || { roomId: '' }).roomId === r.id))), L = r.layout;
     if (!L || String(r.name).toLowerCase() === 'outside' || !sens.length) continue;
     const cat = entityCatalog()['motion-sensor'], st = Math.max(0.1, Math.sqrt((L.width * L.height) / 40000)), nx = Math.max(1, Math.floor(L.width / st)), ny = Math.max(1, Math.floor(L.height / st));
     const cones = sens.map(e => { const w = entityWorld(graph, e), f = ((typeof e.facingDegrees === 'number' ? e.facingDegrees : cat.facingDegrees) * Math.PI) / 180, fov = typeof e.fieldOfViewDegrees === 'number' ? e.fieldOfViewDegrees : cat.fieldOfViewDegrees; return w ? { x: w.x, y: w.y, sx: Math.sin(f), sy: -Math.cos(f), fov, cos: Math.cos((Math.min(360, fov) / 2) * Math.PI / 180), range: typeof e.range === 'number' ? e.range : cat.range } : null; }).filter(Boolean) as any[];
@@ -394,7 +461,7 @@ export function coverageHints(graph: any): { key: string; code: string; message:
     if (pct < 80) out.push({ key: 'low-coverage|' + r.id, code: 'low-coverage', message: 'Room \"' + r.name + '\": motion sensors cover only ' + pct + '% of the floor.', target: { roomId: r.id }, fix: { type: 'motion-sensor', roomId: r.id } });
   }
   if (checks.motion !== false) for (const r of graph.rooms) {
-    if (!r.layout || String(r.name).toLowerCase() === 'outside' || list.some(e => e.type === 'motion-sensor' && e.roomId === r.id)) continue;
+    if (!r.layout || String(r.name).toLowerCase() === 'outside' || list.some(e => e.type === 'motion-sensor' && (e.roomId === r.id || (e.objectId && (entityWorld(graph, e) || { roomId: '' }).roomId === r.id)))) continue;
     out.push({ key: 'no-motion|' + r.id, code: 'no-motion', message: 'Room "' + r.name + '" has no motion sensor.', target: { roomId: r.id }, fix: { type: 'motion-sensor', roomId: r.id } });
   }
   if (checks.doorContact !== false) {

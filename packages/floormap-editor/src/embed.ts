@@ -23,9 +23,10 @@ import { areaKinds, addArea, updateArea, removeArea, areaAt, validateAreas, fill
 import {
   entityCatalog, entityWorld, entityHost, entityHostAt, coverageSector, nearestAnchor, addEntity, moveEntity,
   updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, syncEntitySizes,
-  coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities,
+  coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities, entityObjectFrame, entitySuggestions,
 } from './entities.js';
 import { shiftOrigin } from './origin.js';
+import { objectCatalog, objectDefs, objectFootprint, objectHost, objectHostAt, objectClamp, addObject, moveObject, updateObject, removeObject, validateObjects, fillObjectDefaults, objectClearance, objectSnap, addObjectType, updateObjectType, removeObjectType } from './objects.js';
 import { floorsSplit, floorsMerge, floorsSwitch, floorsAdd, floorsRemove, floorsRename, floorsGhost, floorsFill } from './floors.js';
 import { stairRect, stairBar, stairsVisible, stairsAdd, stairsUpdate, stairsRemove, stairsHost, stairsFill, stairResize } from './stairs.js';
 import { savedGraph } from './save.js';
@@ -49,7 +50,9 @@ export const embeddedFunctions: readonly EmbeddedFunction[] = [
   // entities
   entityCatalog, entityWorld, entityHost, entityHostAt, coverageSector, nearestAnchor, addEntity, moveEntity,
   updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, syncEntitySizes,
-  coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities,
+  coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities, entityObjectFrame, entitySuggestions,
+  // objects (appliances, furniture)
+  objectCatalog, objectDefs, objectFootprint, objectHost, objectHostAt, objectClamp, addObject, moveObject, updateObject, removeObject, validateObjects, fillObjectDefaults, objectClearance, objectSnap, addObjectType, updateObjectType, removeObjectType,
   // site origin, floors, stairs
   shiftOrigin,
   floorsSplit, floorsMerge, floorsSwitch, floorsAdd, floorsRemove, floorsRename, floorsGhost, floorsFill,

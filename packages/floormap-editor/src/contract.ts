@@ -11,6 +11,7 @@ import type { FloorplanGraph, FloorRoom } from './schema.js';
 import { deriveJoints } from './joints.js';
 import { validateEntities } from './entities.js';
 import { validateAreas } from './areas.js';
+import { validateObjects } from './objects.js';
 import { stairsHost } from './stairs.js';
 
 export function checkContract(input: any): { errors: { code: string; message: string }[]; warnings: { code: string; message: string }[] } {
@@ -19,7 +20,7 @@ export function checkContract(input: any): { errors: { code: string; message: st
   const err = (code: string, message: string) => errors.push({ code, message }), warn = (code: string, message: string) => warnings.push({ code, message });
   const rooms: FloorRoom[] = graph.rooms || [], rel: Link[] = graph.relationships || [], conns = rooms.flatMap(r => (r.connectors || []).map((c) => ({ c, r })));
   const dups = (kind: string, ids: string[]) => { const seen = new Set<string>(), d = new Set<string>(); for (const id of ids) { if (seen.has(id)) d.add(id); seen.add(id); } for (const id of d) err('duplicate-' + kind, 'Duplicate ' + kind + ' id "' + id + '"'); };
-  dups('room', rooms.map(r => r.id)); dups('connector', conns.map(x => x.c.id)); dups('relationship', rel.map(l => l.id)); dups('area', (graph.areas || []).map((a) => a.id));
+  dups('room', rooms.map(r => r.id)); dups('connector', conns.map(x => x.c.id)); dups('relationship', rel.map(l => l.id)); dups('area', (graph.areas || []).map((a) => a.id)); dups('object', (graph.objects || []).map((o) => o.id));
   const roomIds = new Set<string>(rooms.map(r => r.id)), connIds = new Set<string>(conns.map(x => x.c.id)), floorIds = new Set<string>((graph.floors || []).map((f) => f.id));
   for (const r of rooms) {
     if (String(r.name).toLowerCase() !== 'outside' && !r.layout) err('no-layout', 'Room "' + r.name + '" has no position and size');
@@ -45,5 +46,6 @@ export function checkContract(input: any): { errors: { code: string; message: st
   const nm = (list: { id: string; name?: string }[] | undefined, id: string) => { const f = (list || []).find((x) => x.id === id); return f && f.name && f.name !== id ? f.name + ' (' + id + ')' : id; };
   for (const e of validateEntities(graph)) warn('entity-' + e.code, 'Entity "' + nm(graph.entityPlacements, e.id) + '": ' + e.message);
   for (const a of validateAreas(graph)) warn('area-' + a.code, 'Area "' + nm(graph.areas, a.id) + '": ' + a.message);
+  for (const o of validateObjects(graph)) { const m = 'Object "' + nm(graph.objects, o.id) + '": ' + o.message; if (o.code === 'no-host') err('dangling-object', m); else warn('object-' + o.code, m); }
   return { errors, warnings };
 }
