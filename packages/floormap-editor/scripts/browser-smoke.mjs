@@ -16,6 +16,7 @@ svg.getScreenCTM = () => ({ inverse: () => ({}) }); svg.setPointerCapture = () =
 const snapG = () => w.eval('JSON.stringify(g)');
 const ev = (type, el, props = {}) => { const e = new w.Event(type, { bubbles: true, cancelable: true }); Object.assign(e, { pointerId: 1, clientX: 0, clientY: 0 }, props); el.dispatchEvent(e); };
 const joints = () => $('joints').textContent;
+w.eval("moveMode='free'"); // the default move mode is Slide + pull; this script tests the Free drag
 
 await $('file').onchange({ target: { files: [{ text: async () => ref }] } });
 console.log('after load      :', joints(), '| undo disabled:', $('undo').disabled, '| redo disabled:', $('redo').disabled);

@@ -3,10 +3,12 @@
  * `entityPlacements`. Every mutating function returns a NEW graph (the input is never mutated).
  * Positions are room-relative: metres from the room's top-left corner, x right, y down. `facingDegrees` is clockwise
  * from "up" on the plan (0 = up/-y, 90 = right), direction vector (sin a, -cos a).
- * Embedded into the editor HTML with toString(): no imports, helpers live inside the functions; sibling globals (all embedded together): `entityCatalog`, `entityWorld`, `updateEntity`, `entityObjectFrame`, `objectHost`, `objectDefs`.
+ * Embedded into the editor HTML with toString(): no imports, helpers live inside the functions; sibling globals (all embedded together): `entityCatalog`, `entityWorld`, `updateEntity`, `entityObjectFrame`, `entityClamp`, `objectHost`, `objectDefs`, `outlineIssues`, `outlineNearest`, `outlinePoint`.
+ * Room shapes (v2.18 phase 3): a room with an `outline` is a host with that shape (`entityHost`, `entityHostAt` skip its notches); positions are clamped into the shape (`entityClamp`) and `outside-room` also fires for a position in a notch.
  * Objects (v2.17 phase 5): an entity with `objectId` (instead of roomId / areaId / connectorId) sits ON an object. `position` = metres from the object's CENTRE in the object's own frame (x along its width, y along its depth, so it follows the object when that is moved or rotated); only types with `onObject` in the catalogue fit.
  */
 import { objectHost, objectDefs, type ObjectGraph } from './objects.js';
+import { outlineIssues, outlineNearest, outlinePoint } from './shape.js';
 import type { ObjectPlacement } from './schema.js';
 
 export interface EntityResult { graph: any; ok: boolean; message: string; id: string }
@@ -21,35 +23,47 @@ export function entityCatalog(): Record<string, any> {
     'smoke-detector': { label: 'Smoke / fire detector', anchor: 'room', height: 2.3, directional: false },
     thermostat: { label: 'Thermostat / TRV', anchor: 'room', height: 1.5, directional: false },
     'water-leak': { label: 'Water leak sensor', anchor: 'room', outdoor: true, onObject: true, height: 0.1, directional: false },
-    'door-contact': { label: 'Door contact', anchor: 'connector', connectorTypes: ['door'], onObject: true, directional: false },
-    'window-contact': { label: 'Window contact', anchor: 'connector', connectorTypes: ['window'], directional: false },
+    // `roles` (open, tilt): the role of a contact; any number of entities per connector (two open contacts, a tilt contact, ...). No role = open. A tilt contact needs something that tilts.
+    'door-contact': { label: 'Door contact', anchor: 'connector', connectorTypes: ['door'], onObject: true, directional: false, roles: ['open', 'tilt'] },
+    'window-contact': { label: 'Window contact', anchor: 'connector', connectorTypes: ['window'], directional: false, roles: ['open', 'tilt'] },
     lock: { label: 'Lock', anchor: 'connector', connectorTypes: ['door'], directional: false },
     cover: { label: 'Blind / cover', anchor: 'connector', connectorTypes: ['window', 'door'], directional: false },
+    // a fan has two entities, both sit ON a fan object (not in a room): its speed and its direction (forward / reverse)
+    'fan-speed': { label: 'Fan speed', anchor: 'room', onObject: true, objectOnly: true, objectTypes: ['fan'], single: true, height: 2.4, directional: false },
+    'fan-direction': { label: 'Fan direction', anchor: 'room', onObject: true, objectOnly: true, objectTypes: ['fan'], single: true, height: 2.4, directional: false },
   };
 }
 
 /** The room or area an entity sits in ({ id, kind: 'room' | 'area', name, layout }); null for connector entities and missing / unplaced hosts. */
-export function entityHost(graph: any, e: any): { id: string; kind: string; name: string; layout: any } | null {
+export function entityHost(graph: any, e: any): { id: string; kind: string; name: string; layout: any; outline?: [number, number][] } | null {
   const h = e.areaId ? (graph.areas || []).find((a: any) => a.id === e.areaId) : e.roomId ? graph.rooms.find((r: any) => r.id === e.roomId) : null;
-  return h && h.layout ? { id: h.id, kind: e.areaId ? 'area' : 'room', name: h.name, layout: h.layout } : null;
+  return h && h.layout ? { id: h.id, kind: e.areaId ? 'area' : 'room', name: h.name, layout: h.layout, ...(!e.areaId && h.outline && outlineIssues(h.outline).length === 0 ? { outline: h.outline } : {}) } : null;
 }
 
 /**
  * The host under a world point. Order: rooms (smallest first), then - only when `outdoor` is true - areas (smallest first, ellipses honour their curve),
  * then the hidden `Outside` room as the last resort. Ties go to the smaller id.
  */
-export function entityHostAt(graph: any, x: number, y: number, outdoor: boolean): { id: string; kind: string; name: string; layout: any } | null {
+export function entityHostAt(graph: any, x: number, y: number, outdoor: boolean): { id: string; kind: string; name: string; layout: any; outline?: [number, number][] } | null {
   let best: any = null;
   const consider = (kind: string, h: any, tier: number) => {
     const L = h.layout;
     if (!L || x < L.x - 1e-6 || x > L.x + L.width + 1e-6 || y < L.y - 1e-6 || y > L.y + L.height + 1e-6) return;
+    if (kind === 'room' && h.outline && outlineIssues(h.outline).length === 0 && !outlinePoint(h.outline, x - L.x, y - L.y)) return;
     if (kind === 'area' && h.shape === 'ellipse') { const u = (x - (L.x + L.width / 2)) / (L.width / 2), v = (y - (L.y + L.height / 2)) / (L.height / 2); if (u * u + v * v > 1 + 1e-9) return; }
     const s = L.width * L.height;
     if (!best || tier < best.tier || (tier === best.tier && (s < best.s - 1e-9 || (Math.abs(s - best.s) <= 1e-9 && h.id < best.h.id)))) best = { kind, h, tier, s };
   };
   for (const r of graph.rooms) consider('room', r, String(r.name).toLowerCase() === 'outside' ? 2 : 0);
   if (outdoor) for (const a of graph.areas || []) consider('area', a, 1);
-  return best ? { id: best.h.id, kind: best.kind, name: best.h.name, layout: best.h.layout } : null;
+  return best ? { id: best.h.id, kind: best.kind, name: best.h.name, layout: best.h.layout, ...(best.kind === 'room' && best.h.outline && outlineIssues(best.h.outline).length === 0 ? { outline: best.h.outline } : {}) } : null;
+}
+
+/** Clamps a room-relative point into its room or area: inside the rectangle and, for a room with its own shape (`outline`), inside the shape (the nearest boundary point when the point is in a notch). */
+export function entityClamp(layout: { width: number; height: number }, outline: [number, number][] | undefined, x: number, y: number): [number, number] {
+  const rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0, px = Math.max(0, Math.min(layout.width, x)), py = Math.max(0, Math.min(layout.height, y));
+  if (outline && outlineIssues(outline).length === 0) { const n = outlineNearest(outline, px, py); return [rnd(n[0]), rnd(n[1])]; }
+  return [rnd(px), rnd(py)];
 }
 
 /** World (plan) position of an entity: room anchor = room corner + position, connector anchor = the connector point. */
@@ -93,6 +107,7 @@ export function entitySuggestions(objectType: string): string[] {
     [/wardrobe|cabinet|cupboard|closet/, ['door-contact', 'light']],
     [/bed|sofa|couch|armchair|chair/, ['motion-sensor']],
     [/tv|desk|table|shelf|lamp/, ['light']],
+    [/fan/, ['fan-speed', 'fan-direction']],
   ];
   for (const [re, types] of rules) if (re.test(t)) for (const x of types) if (out.indexOf(x) < 0) out.push(x);
   for (const x of ['light', 'environment-sensor', 'motion-sensor']) if (out.length < 3 && out.indexOf(x) < 0) out.push(x);
@@ -131,7 +146,7 @@ export function nearestAnchor(graph: any, type: string, x: number, y: number, ma
 }
 
 /** Adds an entity. Room types: roomId + `position` ([x,y] relative) or `at` (world point); connector types: connectorId. */
-export function addEntity(input: { graph: any; type: string; roomId?: string; areaId?: string; connectorId?: string; objectId?: string; position?: number[]; at?: { x: number; y: number }; name?: string; id?: string; haEntityId?: string; step?: number }): EntityResult {
+export function addEntity(input: { graph: any; type: string; roomId?: string; areaId?: string; connectorId?: string; objectId?: string; role?: string; position?: number[]; at?: { x: number; y: number }; name?: string; id?: string; haEntityId?: string; step?: number }): EntityResult {
   const g: any = JSON.parse(JSON.stringify(input.graph));
   const fail = (m: string): EntityResult => ({ graph: input.graph, ok: false, message: m, id: '' });
   const rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0;
@@ -140,12 +155,14 @@ export function addEntity(input: { graph: any; type: string; roomId?: string; ar
   const list: any[] = g.entityPlacements || (g.entityPlacements = []);
   const wallH = g.buildingDefaults?.wallHeight ?? 2.4;
   const e: any = { id: '', type: input.type };
-  let anchorId = '';
+  let anchorId = '', roleSuffix = '';
+  if (cat.objectOnly && !input.objectId) return fail(cat.label + ' must sit on a ' + cat.objectTypes.join(' / ') + ' object.');
   if (input.objectId) {
     if (!cat.onObject) return fail(cat.label + ' cannot be placed on an object.');
     const f = entityObjectFrame(g, { objectId: input.objectId });
     if (!f) return fail('Pick a placed object.');
-    if (cat.anchor === 'connector' && list.some(o => o.type === input.type && o.objectId === input.objectId)) return fail('That object already has a ' + cat.label.toLowerCase() + '.');
+    if (cat.objectTypes && cat.objectTypes.indexOf(f.obj.type) < 0) return fail(cat.label + ' only fits ' + cat.objectTypes.join(' / ') + ' objects.');
+    if (cat.single && list.some(o => o.type === input.type && o.objectId === input.objectId)) return fail('That object already has a ' + cat.label.toLowerCase() + '.');
     const st = input.step && input.step > 0 ? input.step : 0;
     let p = input.position ? [input.position[0]!, input.position[1]!] : input.at ? [(input.at.x - f.cx) * f.co + (input.at.y - f.cy) * f.s, -(input.at.x - f.cx) * f.s + (input.at.y - f.cy) * f.co] : [0, 0];
     if (st) p = p.map(v => Math.round(v / st) * st);
@@ -160,7 +177,15 @@ export function addEntity(input: { graph: any; type: string; roomId?: string; ar
     const c = owner && owner.connectors.find((p: any) => p.id === input.connectorId);
     if (!c) return fail(cat.label + ' needs a connector.');
     if (cat.connectorTypes.indexOf(c.type) < 0) return fail(cat.label + ' only fits ' + cat.connectorTypes.join('/') + ' connectors.');
-    if (list.some(o => o.type === input.type && o.connectorId === c.id)) return fail('That connector already has a ' + cat.label.toLowerCase() + '.');
+    if (cat.roles) {
+      // role: `open` (the default, not written) or `tilt`; the tilt role only exists on something that can tilt (window type tilt / tilt-turn, door with door.tilt).
+      // Any number of entities per connector, the same type and role twice included (two open contacts, a glass-break sensor next to a contact, ...).
+      const tiltable = c.type === 'window' ? ['tilt', 'tilt-turn'].indexOf(c.window && c.window.type) >= 0 : !!(c.door && c.door.tilt);
+      if (input.role && cat.roles.indexOf(input.role) < 0) return fail('Unknown role "' + input.role + '" (' + cat.roles.join(' / ') + ').');
+      if (input.role === 'tilt' && !tiltable) return fail('A tilt ' + cat.label.toLowerCase() + ' needs a window of type tilt or tilt and turn (or a door that tilts).');
+      const role = input.role || cat.roles[0];
+      if (role !== cat.roles[0]) { e.role = role; roleSuffix = '-' + role; }
+    }
     e.connectorId = c.id; anchorId = c.id;
   } else {
     const r = input.areaId ? (g.areas || []).find((x: any) => x.id === input.areaId) : g.rooms.find((x: any) => x.id === input.roomId);
@@ -171,7 +196,7 @@ export function addEntity(input: { graph: any; type: string; roomId?: string; ar
     if (st) p = p.map(v => Math.round(v / st) * st);
     if (input.areaId) e.areaId = r.id; else e.roomId = r.id;
     anchorId = r.id;
-    e.position = [rnd(Math.max(0, Math.min(L.width, p[0]!))), rnd(Math.max(0, Math.min(L.height, p[1]!)))];
+    e.position = entityClamp(L, input.areaId ? undefined : r.outline, p[0]!, p[1]!);
     e.height = rnd(Math.min(cat.height, wallH));
     if (cat.directional) { e.facingDegrees = cat.facingDegrees; e.fieldOfViewDegrees = cat.fieldOfViewDegrees; e.range = cat.range; }
     if (cat.multi) e[cat.multi.field] = cat.multi.default.slice();
@@ -179,7 +204,7 @@ export function addEntity(input: { graph: any; type: string; roomId?: string; ar
   if (input.name) e.name = input.name;
   if (input.haEntityId) e.haEntityId = input.haEntityId;
   const slug = (s: string) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'entity';
-  const base = slug(input.id || (anchorId + '-' + input.type));
+  const base = slug(input.id || (anchorId + '-' + input.type + roleSuffix));
   let id = base, n = 2;
   while (list.some(o => o.id === id)) id = base + '-' + n++;
   e.id = id;
@@ -209,11 +234,12 @@ export function moveEntity(input: { graph: any; id: string; x: number; y: number
   const L = r.layout, st = input.step && input.step > 0 ? input.step : 0, sn = (v: number) => (st ? Math.round(v / st) * st : v);
   const reparent = r.id !== (e.areaId || e.roomId) || r.kind !== (e.areaId ? 'area' : 'room');
   if (r.kind === 'area') { delete e.roomId; e.areaId = r.id; } else { delete e.areaId; e.roomId = r.id; }
-  e.position = [rnd(Math.max(0, Math.min(L.width, sn(input.x - L.x)))), rnd(Math.max(0, Math.min(L.height, sn(input.y - L.y))))];
+  e.position = entityClamp(L, r.outline, sn(input.x - L.x), sn(input.y - L.y));
   return { graph: g, ok: true, message: reparent ? 'Moved to ' + r.name + '.' : 'Moved.', id: e.id };
 }
 
 /** Edits fields of one entity: id (renamed, must stay unique), name, haEntityId, position (clamped), height (0..wallHeight), facing / field of view / range (directional types). */
+interface TConn { id: string; type?: string; window?: { type?: string }; door?: { tilt?: boolean } }
 export function updateEntity(input: { graph: any; id: string; patch: any }): EntityResult {
   const g: any = JSON.parse(JSON.stringify(input.graph));
   const fail = (m: string): EntityResult => ({ graph: input.graph, ok: false, message: m, id: input.id });
@@ -230,7 +256,7 @@ export function updateEntity(input: { graph: any; id: string; patch: any }): Ent
   for (const k of ['name', 'haEntityId']) if (k in P) { if (P[k]) e[k] = String(P[k]); else delete e[k]; }
   if ((e.roomId || e.areaId) && Array.isArray(P.position)) {
     const r = entityHost(g, e), x = num(P.position[0]), y = num(P.position[1]);
-    if (r && !isNaN(x) && !isNaN(y)) e.position = [rnd(Math.max(0, Math.min(r.layout.width, x))), rnd(Math.max(0, Math.min(r.layout.height, y)))];
+    if (r && !isNaN(x) && !isNaN(y)) e.position = entityClamp(r.layout, r.outline, x, y);
   }
   if (e.objectId && Array.isArray(P.position)) {
     const f = entityObjectFrame(g, e), x = num(P.position[0]), y = num(P.position[1]);
@@ -244,6 +270,14 @@ export function updateEntity(input: { graph: any; id: string; patch: any }): Ent
   }
   if (cat.multi && Array.isArray(P[cat.multi.field])) { const v = cat.multi.options.filter((o: string) => P[cat.multi.field].indexOf(o) >= 0); if (v.length) e[cat.multi.field] = v; }
   if ((e.roomId || e.areaId) && 'anchorCorner' in P) { if (['tl', 'tr', 'bl', 'br'].indexOf(P.anchorCorner) >= 0) e.anchorCorner = P.anchorCorner; else delete e.anchorCorner; }
+  if (e.connectorId && cat.roles && 'role' in P) {
+    if (cat.roles.indexOf(P.role) < 0) return fail('Unknown role "' + P.role + '" (' + cat.roles.join(' / ') + ').');
+    if (P.role === 'tilt') {
+      const own = g.rooms.find((r: { connectors?: TConn[] }) => (r.connectors || []).some((q: TConn) => q.id === e.connectorId)), pc = own && (own.connectors as TConn[]).find((q: TConn) => q.id === e.connectorId);
+      if (pc && !(pc.type === 'window' ? ['tilt', 'tilt-turn'].indexOf((pc.window && pc.window.type) || '') >= 0 : !!(pc.door && pc.door.tilt))) return fail('A tilt ' + cat.label.toLowerCase() + ' needs a window of type tilt or tilt and turn (or a door that tilts).');
+    }
+    if (P.role === cat.roles[0]) delete e.role; else e.role = P.role;
+  }
   return { graph: g, ok: true, message: 'Updated "' + e.id + '".', id: e.id };
 }
 
@@ -255,10 +289,10 @@ export function removeEntity(input: { graph: any; id: string }): EntityResult {
   return { graph: g, ok: true, message: 'Removed "' + input.id + '".', id: input.id };
 }
 
-/** Checks every entity; issues are sorted by id, then code. Codes: unknown-type, orphan, no-layout, outside-room, outside-object, height-range, duplicate-id, type-mismatch, double-contact. */
+/** Checks every entity; issues are sorted by id, then code. Codes: unknown-type, orphan, no-layout, outside-room, outside-object, height-range, duplicate-id, type-mismatch, invalid-option (unknown role), role-mismatch (tilt contact on something that cannot tilt). Several entities of the same type (and role) on one connector are allowed. */
 export function validateEntities(graph: any): { id: string; code: string; message: string }[] {
   const out: { id: string; code: string; message: string }[] = [], cat = entityCatalog(), list: any[] = graph.entityPlacements || [], wallH = graph.buildingDefaults?.wallHeight ?? 2.4;
-  const seen: Record<string, number> = {}, contactDoors: Record<string, string[]> = {};
+  const seen: Record<string, number> = {};
   const add = (id: string, code: string, message: string) => out.push({ id, code, message });
   list.forEach((e, i) => {
     const id = String(e.id ?? '#' + i);
@@ -283,21 +317,19 @@ export function validateEntities(graph: any): { id: string; code: string; messag
       const p = owner && owner.connectors.find((q: any) => q.id === e.connectorId);
       if (!p) { add(id, 'orphan', 'Connector "' + e.connectorId + '" does not exist.'); return; }
       if (c.connectorTypes && c.connectorTypes.indexOf(p.type) < 0) add(id, 'type-mismatch', c.label + ' on a ' + p.type + ' connector.');
-      const l = (graph.relationships || []).find((k: any) => k.connectorA === p.id || k.connectorB === p.id);
-      const key = l ? l.id : p.id;
-      (contactDoors[e.type + '|' + key] = contactDoors[e.type + '|' + key] || []).push(id);
+      if (c.roles && e.role !== undefined && c.roles.indexOf(e.role) < 0) add(id, 'invalid-option', 'Unknown role "' + e.role + '" (' + c.roles.join(' / ') + ').');
+      if (c.roles && e.role === 'tilt' && !(p.type === 'window' ? ['tilt', 'tilt-turn'].indexOf(p.window && p.window.type) >= 0 : !!(p.door && p.door.tilt))) add(id, 'role-mismatch', 'Tilt ' + c.label.toLowerCase() + ' on a ' + p.type + ' that cannot tilt (set the window type to tilt or tilt and turn).');
     } else {
       const r = e.areaId ? (graph.areas || []).find((x: any) => x.id === e.areaId) : graph.rooms.find((x: any) => x.id === e.roomId), what = e.areaId ? 'Area' : 'Room';
       if (!r) { add(id, 'orphan', what + ' "' + (e.areaId || e.roomId) + '" does not exist.'); return; }
       if (!r.layout) { add(id, 'no-layout', what + ' "' + r.name + '" is not placed.'); return; }
-      const p = e.position;
-      if (!Array.isArray(p) || p[0] < -1e-6 || p[1] < -1e-6 || p[0] > r.layout.width + 1e-6 || p[1] > r.layout.height + 1e-6) add(id, 'outside-room', 'Position is outside ' + what.toLowerCase() + ' "' + r.name + '".');
+      const p = e.position, shape = !e.areaId && r.outline && outlineIssues(r.outline).length === 0 ? r.outline : null;
+      if (!Array.isArray(p) || p[0] < -1e-6 || p[1] < -1e-6 || p[0] > r.layout.width + 1e-6 || p[1] > r.layout.height + 1e-6 || (shape && !outlinePoint(shape, p[0], p[1]))) add(id, 'outside-room', 'Position is outside ' + what.toLowerCase() + ' "' + r.name + '"' + (shape && Array.isArray(p) && p[0] >= 0 && p[1] >= 0 && p[0] <= r.layout.width && p[1] <= r.layout.height ? ' (in a notch of its shape).' : '.'));
       if (typeof e.height === 'number' && (e.height < 0 || e.height > wallH + 1e-6)) add(id, 'height-range', 'Height ' + e.height + ' m is outside 0..' + wallH + ' m.');
       if (c.multi && Array.isArray(e[c.multi.field]) && e[c.multi.field].some((o: string) => c.multi.options.indexOf(o) < 0)) add(id, 'invalid-option', 'Unknown value in ' + c.multi.field + '.');
     }
   });
   for (const id of Object.keys(seen)) if (seen[id]! > 1) add(id, 'duplicate-id', 'Id used ' + seen[id] + ' times.');
-  for (const k of Object.keys(contactDoors)) if (contactDoors[k]!.length > 1) for (const id of contactDoors[k]!) add(id, 'double-contact', 'Several ' + k.split('|')[0] + ' entities on the two connectors of one door.');
   return out.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : a.code < b.code ? -1 : a.code > b.code ? 1 : 0));
 }
 
@@ -354,13 +386,21 @@ export function moveEntities(input: { graph: any; ids: string[]; dx: number; dy:
   const g: any = JSON.parse(JSON.stringify(input.graph)), rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0;
   let n = 0;
   for (const e of g.entityPlacements || []) {
-    if (input.ids.indexOf(e.id) < 0 || !(e.roomId || e.areaId)) continue;
+    if (input.ids.indexOf(e.id) < 0 || !(e.roomId || e.areaId || e.objectId)) continue;
     const w = entityWorld(g, e);
     if (!w) continue;
+    if (e.objectId) {
+      const f = entityObjectFrame(g, e);
+      if (!f) continue;
+      const ox = w.x + input.dx - f.cx, oy = w.y + input.dy - f.cy;
+      e.position = [rnd(Math.max(-f.hw, Math.min(f.hw, ox * f.co + oy * f.s))), rnd(Math.max(-f.hd, Math.min(f.hd, -ox * f.s + oy * f.co)))];
+      n++;
+      continue;
+    }
     const x = w.x + input.dx, y = w.y + input.dy, r = entityHostAt(g, x, y, !!(entityCatalog()[e.type] || {}).outdoor) || entityHost(g, e);
     if (!r) continue;
     if (r.kind === 'area') { delete e.roomId; e.areaId = r.id; } else { delete e.areaId; e.roomId = r.id; }
-    e.position = [rnd(Math.max(0, Math.min(r.layout.width, x - r.layout.x))), rnd(Math.max(0, Math.min(r.layout.height, y - r.layout.y)))];
+    e.position = entityClamp(r.layout, r.outline, x - r.layout.x, y - r.layout.y);
     n++;
   }
   return n ? { graph: g, ok: true, message: 'Moved ' + n + (n === 1 ? ' entity.' : ' entities.'), id: '' } : { graph: input.graph, ok: false, message: 'Nothing to move.', id: '' };
@@ -385,7 +425,20 @@ export function pasteEntities(input: { graph: any; items: { entity: any; x: numb
   const rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0, st = input.step && input.step > 0 ? input.step : 0, sn = (v: number) => (st ? Math.round(v / st) * st : v);
   for (const it of input.items) {
     const src = it.entity;
-    if (!src || !(src.roomId || src.areaId)) continue;
+    if (!src || !(src.roomId || src.areaId || src.objectId)) continue;
+    if (src.objectId) {
+      const f = entityObjectFrame(g, src);
+      if (!f) continue;
+      const ox = it.x + input.dx - f.cx, oy = it.y + input.dy - f.cy, base2 = String(src.id).replace(/-\d+$/, '') || 'entity';
+      let id2 = base2, n2 = 2;
+      while (list.some(o => o.id === id2)) id2 = base2 + '-' + n2++;
+      const e2 = JSON.parse(JSON.stringify(src)), ordered2: Record<string, unknown> = { id: id2 };
+      e2.position = [rnd(Math.max(-f.hw, Math.min(f.hw, sn(ox * f.co + oy * f.s)))), rnd(Math.max(-f.hd, Math.min(f.hd, sn(-ox * f.s + oy * f.co))))];
+      for (const k of Object.keys(e2)) if (!(k in ordered2)) ordered2[k] = e2[k];
+      list.push(ordered2);
+      ids.push(id2);
+      continue;
+    }
     const x = it.x + input.dx, y = it.y + input.dy, r = entityHostAt(g, x, y, !!(entityCatalog()[src.type] || {}).outdoor) || entityHost(g, src);
     if (!r) continue;
     const base = String(src.id).replace(/-\d+$/, '') || 'entity';
@@ -393,7 +446,7 @@ export function pasteEntities(input: { graph: any; items: { entity: any; x: numb
     while (list.some(o => o.id === id)) id = base + '-' + n++;
     const e = JSON.parse(JSON.stringify(src)), ordered: any = { id };
     if (r.kind === 'area') { delete e.roomId; e.areaId = r.id; } else { delete e.areaId; e.roomId = r.id; }
-    e.position = [rnd(Math.max(0, Math.min(r.layout.width, sn(x - r.layout.x)))), rnd(Math.max(0, Math.min(r.layout.height, sn(y - r.layout.y))))];
+    e.position = entityClamp(r.layout, r.outline, sn(x - r.layout.x), sn(y - r.layout.y));
     for (const k of Object.keys(e)) if (!(k in ordered)) ordered[k] = e[k];
     list.push(ordered);
     ids.push(id);
@@ -409,11 +462,11 @@ export function pasteEntities(input: { graph: any; items: { entity: any; x: numb
 export function alignEntities(input: { graph: any; ids: string[]; mode: string }): EntityResult {
   const g: any = JSON.parse(JSON.stringify(input.graph)), rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0;
   const fail = (m: string): EntityResult => ({ graph: input.graph, ok: false, message: m, id: '' });
-  const items: { e: any; r: any; x: number; y: number }[] = [];
+  const items: { e: any; r: any; f: ReturnType<typeof entityObjectFrame>; x: number; y: number }[] = [];
   for (const e of g.entityPlacements || []) {
-    if (input.ids.indexOf(e.id) < 0 || !(e.roomId || e.areaId)) continue;
-    const w = entityWorld(g, e), r = entityHost(g, e);
-    if (w && r) items.push({ e, r, x: w.x, y: w.y });
+    if (input.ids.indexOf(e.id) < 0 || !(e.roomId || e.areaId || e.objectId)) continue;
+    const w = entityWorld(g, e), r = e.objectId ? null : entityHost(g, e), f = e.objectId ? entityObjectFrame(g, e) : null;
+    if (w && (r || f)) items.push({ e, r, f, x: w.x, y: w.y });
   }
   const horiz = ['left', 'hcenter', 'right', 'hdist'].indexOf(input.mode) >= 0, vert = ['top', 'vcenter', 'bottom', 'vdist'].indexOf(input.mode) >= 0, dist = input.mode === 'hdist' || input.mode === 'vdist';
   if (!horiz && !vert) return fail('Unknown align mode.');
@@ -422,8 +475,14 @@ export function alignEntities(input: { graph: any; ids: string[]; mode: string }
   if (dist) items.slice().sort((a, b) => a[key] - b[key] || (a.e.id < b.e.id ? -1 : 1)).forEach((it, i, s) => target.set(it, lo + ((hi - lo) * i) / (s.length - 1)));
   else for (const it of items) target.set(it, input.mode === 'left' || input.mode === 'top' ? lo : input.mode === 'right' || input.mode === 'bottom' ? hi : (lo + hi) / 2);
   for (const it of items) {
-    const t = target.get(it)!, L = it.r.layout, p = it.e.position;
-    it.e.position = horiz ? [rnd(Math.max(0, Math.min(L.width, t - L.x))), p[1]] : [p[0], rnd(Math.max(0, Math.min(L.height, t - L.y)))];
+    const t = target.get(it)!, p = it.e.position;
+    if (it.f) {
+      const f = it.f, ox = (horiz ? t : it.x) - f.cx, oy = (horiz ? it.y : t) - f.cy;
+      it.e.position = [rnd(Math.max(-f.hw, Math.min(f.hw, ox * f.co + oy * f.s))), rnd(Math.max(-f.hd, Math.min(f.hd, -ox * f.s + oy * f.co)))];
+      continue;
+    }
+    const L = it.r.layout;
+    it.e.position = horiz ? entityClamp(L, it.r.outline, t - L.x, p[1]) : entityClamp(L, it.r.outline, p[0], t - L.y);
   }
   return { graph: g, ok: true, message: (dist ? 'Distributed ' : 'Aligned ') + items.length + ' entities.', id: '' };
 }

@@ -15,9 +15,11 @@
  * variable, or violating a hard constraint, makes that drag distance infeasible. The drag is swept in grid steps from
  * zero and stops at the last feasible step, so the result is exact (no scaling back) and never tunnels.
  *
- * `planWall` calls `deriveJoints` (embedded next to it in the editor HTML, imported in Node).
+ * `planWall` calls `deriveJoints` (embedded next to it in the editor HTML, imported in Node). Overlaps are measured on the real shapes of rooms with an `outline` (siblings
+ * `outlineIssues`, `outlineOverlapArea`, only called for such rooms), so a room can be dragged into the notch of an L-shaped neighbour.
  */
 import { deriveJoints } from './joints.js';
+import { outlineIssues, outlineOverlapArea } from './shape.js';
 import type { Joint, JRoom, JLink, JointOverride } from './joints.js';
 
 export type WallSide = 'top' | 'right' | 'bottom' | 'left';
@@ -32,6 +34,11 @@ export interface WallInput {
   noOverlap?: boolean;
   /** rooms that merely touch (no relationship between them) follow the dragged wall like attached rooms (default false) */
   glueTouching?: boolean;
+  /** doors / passages of attached pairs that a wall would cut off slide along the wall (pushed just inside the shared part) instead of stopping the drag (default false) */
+  slideOpenings?: boolean;
+  /** smallest / largest room size in metres along the dragged axis (default: 50% / 250% of the category default, the minimum at least 1 m; a room that is already outside keeps its size as the limit) */
+  minSize?: number;
+  maxSize?: number;
   /** wall alignment groups: walls of a group that are at the same level now stay at the same level (only for the axis of the drag) */
   alignments?: { side: WallSide; roomIds: string[] }[];
   /** walls that must not move (used by planAlign to protect the reference and already aligned walls) */
@@ -77,6 +84,19 @@ export function planWall(input: WallInput): WallPlan {
   if (!L.has(roomId)) return { layouts: {}, openings: [], delta: 0, blocked: false, reason: '', ids: [], message: '', moved: [] };
 
   const K = (id: string, e: 'lo' | 'hi') => id + '|' + e, ZERO = '#0';
+  // rooms with an `outline` (L, U, T shapes) touch and block with their real shape: a room may enter the notch of a shaped neighbour and is not glued to a bounding box it does not really touch.
+  // The extent along the drag axis is measured over the part of the other axis that both rooms share; rectangular rooms keep their box (siblings `outlineIssues`, `outlineOverlapArea` are only called for shaped rooms).
+  const shapeOf = (r: JRoom) => (r.outline && r.layout && outlineIssues(r.outline).length === 0 ? r.outline : null);
+  const extent = (r: JRoom, u0: number, u1: number, hiEnd: boolean): number => {
+    const bb = hiEnd ? hi0(r.id) : lo0(r.id), o = shapeOf(r);
+    if (!o) return bb;
+    const l = r.layout!, poly = o.map((p): [number, number] => [p[0] + l.x, p[1] + l.y]), T = 0.01;
+    const lv = [...new Set(poly.map(p => (axis === 'x' ? p[0] : p[1])))].sort((a, b) => a - b);
+    const strip = (a: number, b: number): [number, number][] => (axis === 'x' ? [[a, u0], [b, u0], [b, u1], [a, u1]] : [[u0, a], [u1, a], [u1, b], [u0, b]]);
+    if (hiEnd) { for (let i = lv.length - 1; i >= 0; i--) if (outlineOverlapArea(poly, strip(lv[i]! - T, lv[i]!)) > EPS) return lv[i]!; }
+    else { for (let i = 0; i < lv.length; i++) if (outlineOverlapArea(poly, strip(lv[i]!, lv[i]! + T)) > EPS) return lv[i]!; }
+    return bb;
+  };
   type C = { i: string; j: string; c: number; push: boolean; tag: string; ids: string[] }; // v_j - v_i >= c
   const base = new Map<string, number>([[ZERO, 0]]);
   const fixedBase = new Set<string>([ZERO]);
@@ -87,8 +107,8 @@ export function planWall(input: WallInput): WallPlan {
   for (const r of rooms) {
     const id = r.id, s0 = hi0(id) - lo0(id), def = SIZES[cat.get(id) ?? 'medium'] ?? SIZES.medium, d = axis === 'x' ? def[0] : def[1];
     base.set(K(id, 'lo'), lo0(id)); base.set(K(id, 'hi'), hi0(id));
-    add(K(id, 'lo'), K(id, 'hi'), Math.min(s0, Math.max(1, d * 0.5)), true, 'min', [id]);        // not smaller than the minimum (or than it is now)
-    add(K(id, 'hi'), K(id, 'lo'), -Math.max(s0, d * 2.5), false, 'max', [id]);                  // not larger than the maximum (or than it is now)
+    add(K(id, 'lo'), K(id, 'hi'), Math.min(s0, input.minSize ?? Math.max(1, d * 0.5)), true, 'min', [id]);        // not smaller than the minimum (or than it is now)
+    add(K(id, 'hi'), K(id, 'lo'), -Math.max(s0, input.maxSize ?? d * 2.5), false, 'max', [id]);                  // not larger than the maximum (or than it is now)
     if (sizeLocked(id)) { add(K(id, 'lo'), K(id, 'hi'), s0, true, 'size', [id]); add(K(id, 'hi'), K(id, 'lo'), -s0, true, 'size', [id]); }
     if (posLocked(id)) fixedBase.add(K(id, 'lo'));
   }
@@ -97,12 +117,13 @@ export function planWall(input: WallInput): WallPlan {
     const A = j.roomA, B = j.roomB;
     if (j.axis !== axis) {                                       // the wall is crossed by the drag direction: rooms stay glued together
       const [p, q] = j.sideA === 'right' || j.sideA === 'bottom' ? [K(A, 'hi'), K(B, 'lo')] : [K(A, 'lo'), K(B, 'hi')];
-      add(p, q, 0, true, 'joint', [A, B]); add(q, p, 0, true, 'joint', [A, B]); eq.add(p + '>' + q);
+      if (Math.abs((base.get(q) as number) - (base.get(p) as number)) <= 0.1) { add(p, q, 0, true, 'joint', [A, B]); add(q, p, 0, true, 'joint', [A, B]); }   // shaped rooms (L, U) can be 'ok' through their outline while their bounding boxes overlap or leave a gap: no glue then
+      eq.add(p + '>' + q);
     } else {                                                     // the wall runs along the drag direction: keep the shared part and the opening
       const w = j.overlap ? j.overlap[1] - j.overlap[0] : 0, keep = Math.min(j.openingWidth + 0.1, w);
       add(K(B, 'lo'), K(A, 'hi'), keep, false, 'tangent', [A, B]); add(K(A, 'lo'), K(B, 'hi'), keep, false, 'tangent', [A, B]);
       const p = j.opening, half = j.openingWidth / 2;
-      for (const id of [A, B]) {
+      if (!input.slideOpenings) for (const id of [A, B]) {
         if (lo0(id) <= p - half + EPS) add(K(id, 'lo'), ZERO, -(p - half), false, 'opening', [A, B]);
         if (hi0(id) >= p + half - EPS) add(ZERO, K(id, 'hi'), p + half, false, 'opening', [A, B]);
       }
@@ -123,7 +144,8 @@ export function planWall(input: WallInput): WallPlan {
       const p = rooms[a]!.id, q = rooms[b]!.id;
       if (ign.has(p) || ign.has(q) || rel.has(p < q ? p + '|' + q : q + '|' + p)) continue;                                  // related (attached, broken or detached on purpose): handled above
       if (Math.min(ohi(p), ohi(q)) - Math.max(olo(p), olo(q)) <= 0.1) continue;                  // no real shared wall part
-      const f = Math.abs(hi0(p) - lo0(q)) <= 1e-3 ? p : Math.abs(hi0(q) - lo0(p)) <= 1e-3 ? q : '';
+      const rp = rooms[a]!, rq = rooms[b]!, u0 = Math.max(olo(p), olo(q)), u1 = Math.min(ohi(p), ohi(q));
+      const f = Math.abs(extent(rp, u0, u1, true) - extent(rq, u0, u1, false)) <= 1e-3 ? p : Math.abs(extent(rq, u0, u1, true) - extent(rp, u0, u1, false)) <= 1e-3 ? q : '';   // real shapes: a U-shaped room does not touch what is only at its bounding box
       if (!f) continue;
       const t = f === p ? q : p;
       add(K(f, 'hi'), K(t, 'lo'), 0, true, 'joint', [f, t]); add(K(t, 'lo'), K(f, 'hi'), 0, true, 'joint', [f, t]); eq.add(K(f, 'hi') + '>' + K(t, 'lo'));
@@ -131,23 +153,27 @@ export function planWall(input: WallInput): WallPlan {
   }
   if (noOverlap) {
     for (let a = 0; a < rooms.length; a++) for (let b = a + 1; b < rooms.length; b++) {
-      const p = rooms[a]!.id, q = rooms[b]!.id;
+      const rp = rooms[a]!, rq = rooms[b]!, p = rp.id, q = rq.id;
       if (ign.has(p) || ign.has(q)) continue;                                                      // hidden room: ignored
-      if (Math.min(ohi(p), ohi(q)) - Math.max(olo(p), olo(q)) <= EPS) continue;                   // do not face each other along this axis
-      if (Math.min(hi0(p), hi0(q)) - Math.max(lo0(p), lo0(q)) > EPS) continue;                    // already overlapping: nothing to protect
-      const [f, t] = hi0(p) <= lo0(q) + EPS ? [p, q] : [q, p];
-      if (!eq.has(K(f, 'hi') + '>' + K(t, 'lo'))) add(K(f, 'hi'), K(t, 'lo'), 0, false, 'overlap', [f, t]);
+      const u0 = Math.max(olo(p), olo(q)), u1 = Math.min(ohi(p), ohi(q));
+      if (u1 - u0 <= EPS) continue;                                                                // do not face each other along this axis
+      const pHi = extent(rp, u0, u1, true), pLo = extent(rp, u0, u1, false), qHi = extent(rq, u0, u1, true), qLo = extent(rq, u0, u1, false);
+      if (Math.min(pHi, qHi) - Math.max(pLo, qLo) > EPS) continue;                                 // already overlapping: nothing to protect
+      const pFirst = pHi <= qLo + EPS, [f, t] = pFirst ? [p, q] : [q, p];
+      const offF = hi0(f) - (pFirst ? pHi : qHi), offT = (pFirst ? qLo : pLo) - lo0(t);            // 0 for rectangular rooms
+      if (!eq.has(K(f, 'hi') + '>' + K(t, 'lo'))) add(K(f, 'hi'), K(t, 'lo'), 0 - (offF + offT), false, 'overlap', [f, t]);
     }
   }
 
   const dragKey = side === 'right' || side === 'bottom' ? K(roomId, 'hi') : K(roomId, 'lo');
+  const ownOther = side === 'right' || side === 'bottom' ? K(roomId, 'lo') : K(roomId, 'hi');
   type Why = { tag: string; ids: string[] };
   const solve = (target: number, sign: 1 | -1): { v: Map<string, number> | null; why: Why | null } => {
     const val = new Map<string, number>();
     for (const [k, x] of base) val.set(k, sign * x);
     val.set(dragKey, sign * target);
     const cs = sign === 1 ? cons : cons.map(c => ({ ...c, i: c.j, j: c.i }));   // mirrored coordinates: v'_i - v'_j >= c
-    const fixed = new Set(fixedBase); fixed.add(dragKey);
+    const fixed = new Set(fixedBase); fixed.add(dragKey); if (!sizeLocked(roomId)) fixed.add(ownOther);   // the dragged room keeps its other wall: at its minimum size the drag stops (only neighbours are squeezed and pushed); a size-locked room is carried as a whole instead
     for (let guard = 0; guard < 4000; guard++) {
       let changed = false;
       for (const c of cs) {
@@ -218,6 +244,9 @@ export interface CornerInput {
   step: number;
   noOverlap?: boolean;
   glueTouching?: boolean;
+  slideOpenings?: boolean;
+  minSize?: number;
+  maxSize?: number;
   alignments?: WallInput['alignments'];
   ignoreIds?: string[];
   sizes?: WallInput['sizes'];
@@ -250,7 +279,7 @@ export function planCorner(input: CornerInput): CornerPlan {
   const plans: WallPlan[] = [];
   let g: any = g0, joints = input.joints;
   for (let k = 0; k < 2; k++) {
-    const p = planWall({ graph: g, joints, roomId: input.roomId, side: sides[k]!, delta: k === 0 ? input.dx : input.dy, step: input.step, noOverlap: input.noOverlap, glueTouching: input.glueTouching, alignments: input.alignments, ignoreIds: input.ignoreIds, sizes: input.sizes });
+    const p = planWall({ graph: g, joints, roomId: input.roomId, side: sides[k]!, delta: k === 0 ? input.dx : input.dy, step: input.step, noOverlap: input.noOverlap, glueTouching: input.glueTouching, slideOpenings: input.slideOpenings, minSize: input.minSize, maxSize: input.maxSize, alignments: input.alignments, ignoreIds: input.ignoreIds, sizes: input.sizes });
     plans.push(p);
     for (const o of p.openings) openings.set(o.connectorA, o);
     if (k === 0) {   // carry the x result into the graph for the y step: new layouts, connectors keep their world position, openings applied

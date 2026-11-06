@@ -15,9 +15,11 @@
  * With `noOverlap` (default on) a move that would make two rooms overlap that did not overlap before is stopped at the last
  * position before contact. The drag is swept step by step from the start, so a room can never tunnel through another one.
  *
- * `planMove` calls `deriveJoints` (embedded next to it in the editor HTML, imported in Node).
+ * `planMove` calls `deriveJoints` (embedded next to it in the editor HTML, imported in Node). Overlaps are measured on the real shapes of rooms with an `outline`
+ * (siblings `outlineIssues`, `outlineOverlapArea`, used only for such rooms), so a room can be moved into the notch of an L-shaped neighbour.
  */
 import { deriveJoints } from './joints.js';
+import { outlineIssues, outlineOverlapArea } from './shape.js';
 import type { Joint, JRoom, JLink, JointOverride } from './joints.js';
 
 export type MoveMode = 'slide' | 'pull';
@@ -138,12 +140,20 @@ export function planMove(input: MoveInput): MovePlan {
   type Why = { tag: string; ids: string[] };
   const ignore = new Set(input.ignoreIds ?? []);   // hidden rooms (Outside): never block by overlap, do not count for blockWholePlan
   const noOverlap = input.noOverlap !== false;
+  const shape = (r: JRoom) => (r.outline && r.layout && outlineIssues(r.outline).length === 0 ? r.outline : null);
+  const worldShape = (r: JRoom): [number, number][] => {
+    const l = r.layout!, o = shape(r);
+    return o ? o.map((p): [number, number] => [p[0] + l.x, p[1] + l.y]) : [[l.x, l.y], [l.x + l.width, l.y], [l.x + l.width, l.y + l.height], [l.x, l.y + l.height]];
+  };
   const overlapKeys = (rs0: JRoom[]) => {
     const rs = rs0.filter(r => !ignore.has(r.id)), out = new Set<string>();
     for (let i = 0; i < rs.length; i++) for (let k = i + 1; k < rs.length; k++) {
       const a = rs[i]!.layout, b = rs[k]!.layout;
       if (!a || !b) continue;
-      if (Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > EPS && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > EPS) out.add(rs[i]!.id + '|' + rs[k]!.id);
+      if (Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > EPS && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > EPS) {
+        if ((shape(rs[i]!) || shape(rs[k]!)) && outlineOverlapArea(worldShape(rs[i]!), worldShape(rs[k]!)) <= EPS) continue;   // only the bounding boxes overlap (a room in the notch of a shape)
+        out.add(rs[i]!.id + '|' + rs[k]!.id);
+      }
     }
     return out;
   };

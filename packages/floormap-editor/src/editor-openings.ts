@@ -10,8 +10,10 @@ export const openingCss =
   '[data-addop].active{background:#17202a;color:#fff}body[data-addop]:not([data-addop=""]) .canvas{cursor:crosshair}.addop-ghost{stroke:#16a34a;stroke-width:.14;stroke-linecap:round;opacity:.85;pointer-events:none}';
 
 export const openingHtml =
-  '<div class="card"><h2>Add connector<span class="tip" tabindex="0">i<span class="tipbox">Pick a type, then click on a wall of a room. On a wall shared with another room a door or passage connects both rooms (a second one is fine); anywhere else it is an exterior opening. Windows are never connected. Width and door type come from Settings (gear).</span></span></h2>' +
-  '<div class="row"><button data-addop="door">+ Door</button><button data-addop="open-passage">+ Passage</button><button data-addop="window">+ Window</button></div><div id="addop-hint" class="mini"></div><button id="connect-rooms" title="Connects the two selected rooms with a door in the middle of their shared wall (click one room, shift-click the other)">Connect two selected rooms</button></div>';
+  '<div class="card"><h2>Add<span class="tip" tabindex="0">i<span class="tipbox">+ Room adds a room next to the selected one (options appear below). For + Door, + Passage and + Window pick the type, then click on a wall of a room. On a wall shared with another room a door or passage connects both rooms (a second one is fine); anywhere else it is an exterior opening. Windows are never connected. Width and door type come from Settings (gear).</span></span></h2>' +
+  '<div class="row"><button id="add-toggle" title="Add a room next to the selected one">+ Room</button><button data-addop="door">+ Door</button><button data-addop="open-passage">+ Passage</button><button data-addop="window">+ Window</button></div>' +
+  '<div id="add-panel" class="sub" hidden><input id="new-name" placeholder="New room name"><div class="row"><select id="new-size"><option value="small">small</option><option value="medium" selected>medium</option><option value="large">large</option></select><select id="new-side"><option>right</option><option>bottom</option><option>left</option><option>top</option></select></div><button id="add-room">Add room next to selected</button><small id="conn-summary" class="mini"></small></div>' +
+  '<div id="addop-hint" class="mini"></div><button id="connect-rooms" title="Connects the two selected rooms with a door in the middle of their shared wall (click one room, shift-click the other)">Connect two selected rooms</button></div>';
 
 export const openingJs = `
 let addOp=null,addGhost=null;

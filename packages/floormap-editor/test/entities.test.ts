@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { entityCatalog, entityWorld, coverageSector, nearestAnchor, addEntity, moveEntity, updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, syncEntitySizes, coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities, entityHost, entityHostAt } from '../src/entities.js';
+import { entityCatalog, entityWorld, coverageSector, nearestAnchor, addEntity, moveEntity, updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, syncEntitySizes, coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities, entityHost, entityHostAt, entityClamp } from '../src/entities.js';
+import { outlineIssues, outlineNearest, outlinePoint, outlineWalls } from '../src/shape.js';
 import { removeRoom, removeConnector } from '../src/edit.js';
 
 const room = (id: string, x: number, y: number, connectors: any[] = [], w = 4, h = 3) => ({ id, name: id, sizeCategory: 'medium', connectors, layout: { x, y, width: w, height: h } });
@@ -48,11 +49,12 @@ describe('addEntity', () => {
   it('position outside the room is clamped: (20,20) in 4x3 -> [4,3]', () => {
     assert.deepEqual(ent(addEntity({ graph: scene(), type: 'light', roomId: 'a', at: { x: 20, y: 20 } }).graph)[0].position, [4, 3]);
   });
-  it('door contact: ok on a door connector (id a-right-door-door-contact), refused on a window, refused twice on the same connector', () => {
+  it('door contact: ok on a door connector (id a-right-door-door-contact), refused on a window, allowed again on the same connector (id ...-2, v3.2: several entities per connector)', () => {
     const r = addEntity({ graph: scene(), type: 'door-contact', connectorId: 'a-right-door' });
     assert.ok(r.ok); assert.deepEqual(ent(r.graph)[0], { id: 'a-right-door-door-contact', type: 'door-contact', connectorId: 'a-right-door' });
     assert.match(addEntity({ graph: scene(), type: 'door-contact', connectorId: 'a-top-window' }).message, /only fits door/);
-    assert.match(addEntity({ graph: r.graph, type: 'door-contact', connectorId: 'a-right-door' }).message, /already has/);
+    const r2 = addEntity({ graph: r.graph, type: 'door-contact', connectorId: 'a-right-door' });
+    assert.ok(r2.ok); assert.equal(r2.id, 'a-right-door-door-contact-2');
   });
   it('refuses unknown type, missing room, missing connector', () => {
     assert.equal(addEntity({ graph: scene(), type: 'ufo', roomId: 'a' }).ok, false);
@@ -143,11 +145,11 @@ describe('validateEntities', () => {
       { id: 'u', type: 'ufo', roomId: 'a' }] });
     assert.deepEqual(codes(g).sort(), ['d:duplicate-id', 'o:height-range', 'o:outside-room', 'p:orphan', 'q:orphan', 'u:unknown-type']);
   });
-  it('door contact on a window connector = type-mismatch; both connectors of one door = double-contact on both', () => {
+  it('door contact on a window connector = type-mismatch; contacts on both connectors of one door are fine (several entities per door, v3.2)', () => {
     const g = scene({ entityPlacements: [
       { id: 'w', type: 'door-contact', connectorId: 'a-top-window' },
       { id: 'c1', type: 'door-contact', connectorId: 'a-right-door' }, { id: 'c2', type: 'door-contact', connectorId: 'b-left-door' }] });
-    assert.deepEqual(codes(g), ['c1:double-contact', 'c2:double-contact', 'w:type-mismatch']);
+    assert.deepEqual(codes(g), ['w:type-mismatch']);
   });
   it('both roomId and connectorId = orphan (exactly one anchor required)', () => {
     assert.deepEqual(codes(scene({ entityPlacements: [{ id: 'x', type: 'light', roomId: 'a', connectorId: 'a-right-door', position: [1, 1] }] })), ['x:orphan']);
@@ -180,13 +182,13 @@ describe('nearestAnchor / catalogue', () => {
     assert.equal(nearestAnchor(scene(), 'door-contact', 1, 0.1), null); assert.equal(nearestAnchor(scene(), 'door-contact', 6, 2), null);
   });
   it('catalogue has the three MVP types; unknown type -> null', () => {
-    assert.deepEqual(Object.keys(entityCatalog()), ['light', 'motion-sensor', 'camera', 'environment-sensor', 'smoke-detector', 'thermostat', 'water-leak', 'door-contact', 'window-contact', 'lock', 'cover']); assert.equal(nearestAnchor(scene(), 'ufo', 1, 1), null);
+    assert.deepEqual(Object.keys(entityCatalog()), ['light', 'motion-sensor', 'camera', 'environment-sensor', 'smoke-detector', 'thermostat', 'water-leak', 'door-contact', 'window-contact', 'lock', 'cover', 'fan-speed', 'fan-direction']); assert.equal(nearestAnchor(scene(), 'ufo', 1, 1), null);
   });
 });
 
 describe('embedded source evaluates and matches Node', () => {
   it('toString of the functions, evaluated, gives identical results', () => {
-    const fns = [entityCatalog, entityWorld, entityHost, entityHostAt, coverageSector, nearestAnchor, addEntity, moveEntity, updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults];
+    const fns = [entityCatalog, entityWorld, entityHost, entityHostAt, coverageSector, nearestAnchor, addEntity, moveEntity, updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, entityClamp, outlineIssues, outlineNearest, outlinePoint, outlineWalls];
     const E: any = new Function(fns.map(f => f.toString()).join('\n') + '\nreturn {' + fns.map(f => f.name).join(',') + '};')();
     const g = scene();
     const a = addEntity({ graph: g, type: 'motion-sensor', roomId: 'a', at: { x: 2.2, y: 1.3 }, step: 0.1 }), b = E.addEntity({ graph: g, type: 'motion-sensor', roomId: 'a', at: { x: 2.2, y: 1.3 }, step: 0.1 });
@@ -285,18 +287,19 @@ describe('camera, thermostat, lock, blind / cover', () => {
     assert.deepEqual(ent(addEntity({ graph: scene(), type: 'thermostat', roomId: 'a' }).graph)[0], { id: 'a-thermostat', type: 'thermostat', roomId: 'a', position: [2, 1.5], height: 1.5 });
     assert.equal(ent(addEntity({ graph: scene({ buildingDefaults: { wallThickness: 0.16, wallHeight: 1, floorThickness: 0.12 } }), type: 'thermostat', roomId: 'a' }).graph)[0].height, 1);
   });
-  it('lock: ok on a door (a-right-door-lock), refused on a window; a lock on each end of one door is double-contact', () => {
+  it('lock: ok on a door (a-right-door-lock), refused on a window; a lock on each end of one door is allowed', () => {
     assert.equal(addEntity({ graph: scene(), type: 'lock', connectorId: 'a-right-door' }).id, 'a-right-door-lock');
     assert.match(addEntity({ graph: scene(), type: 'lock', connectorId: 'a-top-window' }).message, /only fits door/);
-    assert.deepEqual(validateEntities(scene({ entityPlacements: [{ id: 'x', type: 'lock', connectorId: 'a-right-door' }, { id: 'y', type: 'lock', connectorId: 'b-left-door' }] })).map(i => i.id + ':' + i.code), ['x:double-contact', 'y:double-contact']);
+    assert.deepEqual(validateEntities(scene({ entityPlacements: [{ id: 'x', type: 'lock', connectorId: 'a-right-door' }, { id: 'y', type: 'lock', connectorId: 'b-left-door' }] })).map(i => i.id + ':' + i.code), []);
   });
-  it('cover: fits windows and doors; a window can have a contact AND a cover, but not two covers; type mismatch is not flagged', () => {
+  it('cover: fits windows and doors; a window can have a contact AND several covers (second one gets -2); type mismatch is not flagged', () => {
     let g = addEntity({ graph: scene(), type: 'window-contact', connectorId: 'a-top-window' }).graph;
     const r = addEntity({ graph: g, type: 'cover', connectorId: 'a-top-window' });
     assert.equal(r.id, 'a-top-window-cover'); g = r.graph;
-    assert.match(addEntity({ graph: g, type: 'cover', connectorId: 'a-top-window' }).message, /already has/);
+    const r2 = addEntity({ graph: g, type: 'cover', connectorId: 'a-top-window' });
+    assert.equal(r2.id, 'a-top-window-cover-2'); g = r2.graph;
     g = addEntity({ graph: g, type: 'cover', connectorId: 'a-right-door' }).graph;
-    assert.deepEqual(ent(g).map(e => e.id), ['a-top-window-window-contact', 'a-top-window-cover', 'a-right-door-cover']); assert.deepEqual(validateEntities(g), []);
+    assert.deepEqual(ent(g).map(e => e.id), ['a-top-window-window-contact', 'a-top-window-cover', 'a-top-window-cover-2', 'a-right-door-cover']); assert.deepEqual(validateEntities(g), []);
   });
   it('nearestAnchor for cover: (1,0.2) -> window a-top-window, (4,2.1) -> door a-right-door', () => {
     assert.equal(nearestAnchor(scene(), 'cover', 1, 0.2)!.connectorId, 'a-top-window'); assert.equal(nearestAnchor(scene(), 'cover', 4, 2.1)!.connectorId, 'a-right-door');
@@ -395,7 +398,7 @@ describe('multi-select helpers: box, move, remove, paste, align / distribute, sh
     assert.deepEqual(ent(r).map(e => [e.id, e.range, e.height, e.name]), [['a-motion-sensor', 5, 1, undefined], ['a-camera', 5, 1, undefined], ['a-light', undefined, 1, undefined], ['a-right-door-door-contact', undefined, undefined, undefined]]);
   });
   it('embedded source matches Node for all of them', () => {
-    const fns = [entityCatalog, entityWorld, entityHost, entityHostAt, updateEntity, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities];
+    const fns = [entityCatalog, entityWorld, entityHost, entityHostAt, updateEntity, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities, entityClamp, outlineIssues, outlineNearest, outlinePoint, outlineWalls];
     const E: any = new Function(fns.map(f => f.toString()).join('\n') + '\nreturn {' + fns.map(f => f.name).join(',') + '};')();
     const g = lightsIn([[0.5, 2.5], [1.5, 0.5], [3, 1]]), ids = ['a-light', 'a-light-2', 'a-light-3'], items = [{ entity: ent(g)[0], x: 0.5, y: 2.5 }];
     assert.deepEqual(E.entitiesInBox(g, 0, 0, 2, 3), entitiesInBox(g, 0, 0, 2, 3)); assert.deepEqual(E.moveEntities({ graph: g, ids, dx: 4, dy: 0 }), moveEntities({ graph: g, ids, dx: 4, dy: 0 }));
@@ -449,7 +452,7 @@ describe('entities in outside areas (areaId)', () => {
     assert.equal(fillEntityDefaults(withAreas({ entityPlacements: [{ id: 'm', type: 'motion-sensor', areaId: 'deck', position: [1, 1] }] })).entityPlacements[0].height, 2.1);
   });
   it('embedded source matches Node for hosts, add, move and paste in areas', () => {
-    const fns = [entityCatalog, entityWorld, entityHost, entityHostAt, nearestAnchor, addEntity, moveEntity, pasteEntities];
+    const fns = [entityCatalog, entityWorld, entityHost, entityHostAt, nearestAnchor, addEntity, moveEntity, pasteEntities, entityClamp, outlineIssues, outlineNearest, outlinePoint, outlineWalls];
     const E: any = new Function(fns.map(f => f.toString()).join('\n') + '\nreturn {' + fns.map(f => f.name).join(',') + '};')(), g = withAreas();
     assert.deepEqual(E.addEntity({ graph: g, type: 'camera', areaId: 'deck', at: { x: 11, y: 1 }, step: 0.1 }), addEntity({ graph: g, type: 'camera', areaId: 'deck', at: { x: 11, y: 1 }, step: 0.1 }));
     assert.deepEqual(E.nearestAnchor(g, 'light', 12, 6), nearestAnchor(g, 'light', 12, 6)); const a = addEntity({ graph: g, type: 'light', roomId: 'a', position: [1, 1] }).graph;

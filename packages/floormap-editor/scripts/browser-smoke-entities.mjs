@@ -35,11 +35,11 @@ assert.equal(ents()[1].facingDegrees, 90); $('undo').click(); assert.equal(ents(
 // range handle: drag to 2.04 m -> 2
 ptr('pointerdown', doc.querySelector('[data-ehandle=range]'), 2, -2.5); ptr('pointermove', canvas, 2, -1.04); ptr('pointerup', canvas, 2, -1.04);
 assert.equal(ents()[1].range, 2);
-// 4. door contact on the door at (4, 1.5); a second one on the same door is refused
+// 4. door contact on the door at (4, 1.5); a second one on the same door is added too (v3.2), then undone
 click('[data-ptype=door-contact]'); assert.ok(doc.querySelector('.ent-target'), 'door targets shown');
 ptr('pointerdown', canvas, 4.1, 1.4); ptr('pointerup', canvas, 4.1, 1.4);
 assert.deepEqual(ents().at(-1), { id: 'a-right-door-door-contact', type: 'door-contact', connectorId: 'a-right-door' });
-click('[data-ptype=door-contact]'); ptr('pointerdown', canvas, 4.1, 1.4); assert.match($('status').textContent, /already has/); assert.equal(ents().length, 3);
+click('[data-ptype=door-contact]'); ptr('pointerdown', canvas, 4.1, 1.4); assert.equal(ents().at(-1).id, 'a-right-door-door-contact-2'); assert.equal(ents().length, 4); $('undo').click(); assert.equal(ents().length, 3);   // several contacts per door are allowed (v3.2)
 ptr('pointerdown', canvas, 20, 20); doc.dispatchEvent(Object.assign(new w.Event('keydown', { bubbles: true }), { key: 'Escape' }));
 // 5. drag the light into room b (re-parent), undo restores
 ptr('pointerdown', doc.querySelector('[data-ent=a-light]'), 1.2, 1.1); ptr('pointermove', canvas, 5.5, 1); ptr('pointerup', canvas, 5.5, 1);
@@ -58,6 +58,7 @@ doc.querySelector('#ent-list [data-erow]').click(); assert.equal(w.eval('selE'),
 assert.match($('ent-diag-sum').textContent, /Diagnostics \(0\)/);
 // 6c. resizing a room (real corner drag in floor-plan mode) keeps entities at the same relative place; one undo step restores everything
 click('[data-app-btn=plan]');
+w.eval("moveMode='free'"); // default is Slide + pull, which keeps the a-b door and refuses to shrink room a
 w.eval("g=addEntity({graph:g,type:'light',roomId:'a',position:[4,3]}).graph;sel.clear();sel.add('a');render()");
 const pos = t => ents().find(e => e.type === t).position, near = (a, b) => Math.abs(a - b) < 1e-6, m0 = pos('motion-sensor');
 ptr('pointerdown', doc.querySelector('[data-resize=a][data-corner=br]'), 4, 3); ptr('pointermove', canvas, 2, 1.4); ptr('pointerup', canvas, 2, 1.4);
@@ -86,7 +87,7 @@ const cam = ents().at(-1); assert.deepEqual([cam.type, cam.height, cam.fieldOfVi
 assert.ok(doc.querySelector('.ent-cone.sel') && doc.querySelector('[data-ehandle=facing]'), 'camera shows cone and handles');
 click('[data-ptype=lock]'); ptr('pointerdown', canvas, 4.1, 1.4); assert.equal(ents().at(-1).id, 'a-right-door-lock');
 click('[data-ptype=cover]'); ptr('pointerdown', canvas, 4.1, 1.4); assert.equal(ents().at(-1).id, 'a-right-door-cover');
-click('[data-ptype=cover]'); ptr('pointerdown', canvas, 4.1, 1.4); assert.match($('status').textContent, /already has a blind/); doc.dispatchEvent(Object.assign(new w.Event('keydown', { bubbles: true }), { key: 'Escape' }));
+click('[data-ptype=cover]'); ptr('pointerdown', canvas, 4.1, 1.4); assert.equal(ents().at(-1).id, 'a-right-door-cover-2'); $('undo').click(); assert.equal(ents().at(-1).id, 'a-right-door-cover'); doc.dispatchEvent(Object.assign(new w.Event('keydown', { bubbles: true }), { key: 'Escape' }));
 click('[data-ptype=thermostat]'); ptr('pointerdown', canvas, 3, 1); assert.equal(ents().at(-1).height, 1.5);
 // 6f. coverage hints: room b has no motion sensor -> highlight, one-click fix + undo, ignore / restore, switch off / on
 click('[data-etab=list]');

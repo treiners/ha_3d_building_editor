@@ -27,7 +27,7 @@ const pc = $('panel-conn'), tbl = pc.querySelector('table.ptable'); assert.ok(tb
 assert.deepEqual([...tbl.querySelectorAll('tr')].map(tr => tr.firstChild.textContent).slice(0, 5), ['Room', 'Connects to', 'Type', 'Width', 'Door type']);
 assert.ok(pc.querySelector('[data-ctype]') && pc.querySelector('[data-cwidth]') && pc.querySelector('[data-cdoor]') && pc.querySelector('[data-delconn]'), 'handlers keep their data attributes');
 assert.ok($('conn-table').compareDocumentPosition(pc) & 4, 'inspector comes after the connectors table');
-assert.ok(doc.querySelector('.sec-connectors h2').textContent.startsWith('Add connector'), 'Add connector is first');
+assert.ok(doc.querySelector('.sec-layout h2').textContent.startsWith('Add'), 'the Add card is first in the Plan tab'); assert.ok(doc.querySelector('.sec-connectors h2').textContent.startsWith('Connectors'), 'the connectors table card starts the next section');
 assert.equal(w.getComputedStyle($('panel')).display, 'none', 'room panel hidden in the Connectors tab');
 // a window shows sill and head as table rows
 w.eval("selPort='r2-left'; render()"); assert.ok([...$('panel-conn').querySelectorAll('td:first-child')].some(td => td.textContent === 'Sill height'));
@@ -42,7 +42,7 @@ assert.equal(doc.body.dataset.ui, 'layout'); assert.match($('panel').textContent
 // gear: settings view with sections, everything else hidden, Escape or the gear closes it; options keep working
 assert.ok(!doc.body.dataset.settings, 'closed at start');
 $('gear').click(); assert.equal(doc.body.dataset.settings, '1'); assert.equal($('gear').getAttribute('aria-pressed'), 'true');
-assert.deepEqual([...doc.querySelectorAll('#settings-view > .card > h2')].map(h => h.textContent), ['Layout', 'Connectors', 'Entities', 'Interface']);
+assert.deepEqual([...doc.querySelectorAll('#settings-view > .card > h2')].map(h => h.textContent), ['Layout', 'Connectors', 'Entities', 'Colours', 'Interface']);
 assert.equal(w.getComputedStyle($('settings-view')).display, 'block');
 $('show-bars').checked = false; w.eval('render()'); assert.equal(doc.querySelectorAll('.bar').length, 0, 'width bars off');
 $('show-bars').checked = true; w.eval('render()'); assert.ok(doc.querySelectorAll('.bar').length > 0);

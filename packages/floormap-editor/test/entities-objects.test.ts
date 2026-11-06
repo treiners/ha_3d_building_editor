@@ -1,7 +1,8 @@
 // Objects phase 5 (src/entities.ts, src/floors.ts): entities that sit ON an object (objectId, position from the object's centre in its own frame).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addEntity, coverageHints, entitySuggestions, entityWorld, moveEntity, validateEntities } from '../src/entities.js';
+import { addEntity, alignEntities, coverageHints, entitySuggestions, entityWorld, moveEntities, moveEntity, pasteEntities, validateEntities } from '../src/entities.js';
+import { checkContract } from '../src/contract.js';
 import { floorsMerge, floorsSplit, floorsSwitch } from '../src/floors.js';
 import { removeObject } from '../src/objects.js';
 import { embeddedSource } from '../src/embed.js';
@@ -39,10 +40,10 @@ test('moveEntity on an object: world (2.1, 1.7) on the 90 degree fridge gives lo
   assert.deepEqual([far.position, far.objectId, far.roomId], [[0.3, 0.325], 'fridge', undefined]);
 });
 
-test('refused: a smoke detector does not fit objects, a second door contact on the same object, an unknown object', () => {
+test('refused: a smoke detector does not fit objects, an unknown object; a second door contact on the same object is allowed (several entities, v3.2)', () => {
   const g = addEntity({ graph: base(), type: 'door-contact', objectId: 'fridge' }).graph;
   assert.match(addEntity({ graph: g, type: 'smoke-detector', objectId: 'fridge' }).message, /cannot be placed on an object/);
-  assert.match(addEntity({ graph: g, type: 'door-contact', objectId: 'fridge' }).message, /already has a door contact/);
+  assert.equal(addEntity({ graph: g, type: 'door-contact', objectId: 'fridge' }).id, 'fridge-door-contact-2');
   assert.match(addEntity({ graph: g, type: 'light', objectId: 'nope' }).message, /Pick a placed object/);
 });
 
@@ -102,6 +103,40 @@ test('floors: merge renames a clashing object id of the second floor to o-f2 and
   const m = floorsMerge(g);
   assert.deepEqual(m.objects.map((o: any) => o.id), ['o', 'o-f2']);
   assert.deepEqual(m.entityPlacements.map((e: any) => [e.id, e.objectId]), [['e1', 'o'], ['e2', 'o-f2']]);
+});
+
+test('multi-select move: a group move by (0.1, 0.05) puts an entity on the 90 degree fridge at local [0.05, -0.1] (x = 0.1 cos90 + 0.05 sin90, y = -0.1 sin90 + 0.05 cos90); a far move is clamped to 0.3', () => {
+  const g = addEntity({ graph: base(90), type: 'light', objectId: 'fridge' }).graph, id = g.entityPlacements[0].id;
+  assert.deepEqual(moveEntities({ graph: g, ids: [id], dx: 0.1, dy: 0.05 }).graph.entityPlacements[0].position, [0.05, -0.1]);
+  assert.deepEqual(moveEntities({ graph: addEntity({ graph: base(), type: 'light', objectId: 'fridge' }).graph, ids: [id], dx: 5, dy: 0 }).graph.entityPlacements[0].position, [0.3, 0]);
+});
+
+test('paste: a copy lands on the same object at (0.1, 0) with id fridge-light-2; a second door contact is pasted as well (id fridge-door-contact-2)', () => {
+  const g = addEntity({ graph: base(), type: 'light', objectId: 'fridge' }).graph, e = g.entityPlacements[0];
+  const r = pasteEntities({ graph: g, items: [{ entity: e, x: 2, y: 1.5 }], dx: 0.1, dy: 0, step: 0.05 });
+  assert.ok(r.ok); assert.deepEqual([r.ids, r.graph.entityPlacements[1].objectId, r.graph.entityPlacements[1].position, r.graph.entityPlacements.length], [['fridge-light-2'], 'fridge', [0.1, 0], 2]);
+  const c = addEntity({ graph: base(), type: 'door-contact', objectId: 'fridge' }).graph;
+  const p = pasteEntities({ graph: c, items: [{ entity: c.entityPlacements[0], x: 2, y: 1.5 }], dx: 0.1, dy: 0 });
+  assert.ok(p.ok); assert.deepEqual(p.ids, ['fridge-door-contact-2']);
+});
+
+test('align: an entity on the fridge (world x 2.2) and one in the room (world x 3) aligned left both end at x 2.2 (room entity position [2.2, 0.5]); aligned right the fridge entity reaches x 3 only up to its footprint (0.3 from the centre)', () => {
+  const g = base(); g.entityPlacements = [
+    { id: 'a', type: 'light', objectId: 'fridge', position: [0.2, 0], height: 1 },
+    { id: 'b', type: 'light', roomId: 'r', position: [3, 0.5], height: 2 },
+  ];
+  const l = alignEntities({ graph: g, ids: ['a', 'b'], mode: 'left' }).graph.entityPlacements;
+  assert.deepEqual([l[0].position, l[1].position], [[0.2, 0], [2.2, 0.5]]);
+  const r = alignEntities({ graph: g, ids: ['a', 'b'], mode: 'right' }).graph.entityPlacements;
+  assert.deepEqual([r[0].position, r[1].position], [[0.3, 0], [3, 0.5]]);
+});
+
+test('contract: an entity on a missing object is an error (and not also an orphan warning); an entity on an existing object is fine', () => {
+  const bad = base(); bad.entityPlacements = [{ id: 'e', type: 'light', objectId: 'zzz', position: [0, 0], height: 1 }];
+  const c = checkContract(bad);
+  assert.deepEqual(c.errors.map((x) => x.code), ['dangling-entity-object']);
+  assert.ok(!c.warnings.some((x) => x.code === 'entity-orphan'));
+  assert.deepEqual(checkContract(addEntity({ graph: base(), type: 'light', objectId: 'fridge' }).graph).errors, []);
 });
 
 test('the new entity functions are embedded in the page source', () => {

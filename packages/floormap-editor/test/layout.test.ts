@@ -11,10 +11,13 @@ describe('mode + inspector layout', () => {
   it('every control keeps its id exactly once (the editor script and the smoke tests rely on them)', () => {
     for (const id of IDS) assert.equal(h.split('id="' + id + '"').length - 1, 1, id);
   });
-  it('three mode tabs, three mode sections, tool and move-mode as segmented buttons that drive the (classic) selects', () => {
-    assert.equal(h.split('data-ui-tab="').length - 1, 3);
+  it('two mode tabs (Plan shows the layout and connector sections together, Building), three sections, tool and move-mode as segmented buttons that drive the (classic) selects; the Add card holds room, door, passage and window', () => {
+    assert.equal(h.split('data-ui-tab="').length - 1, 2);
     for (const m of ['layout', 'connectors', 'building']) assert.ok(h.includes('class="sec sec-' + m + '"'));
-    assert.equal(h.split('data-seg="tool"').length - 1, 2); assert.equal(h.split('data-seg="move-mode"').length - 1, 3);
+    assert.ok(h.includes('body[data-ui=layout] .sec-connectors'));
+    const add = h.indexOf('id="add-toggle"'), sec = h.indexOf('class="sec sec-connectors"');
+    for (const k of ['door', 'open-passage', 'window']) assert.ok(h.indexOf('data-addop="' + k + '"') > 0 && Math.abs(h.indexOf('data-addop="' + k + '"') - add) < 1200 && h.indexOf('data-addop="' + k + '"') < sec, k);
+    assert.equal(h.split('data-seg="tool"').length - 1, 3); assert.equal(h.split('data-seg="move-mode"').length - 1, 3);
   });
   it('the three map actions, zoom and the view switch live in the toolbar above the plan; the trash icon is created next to the room name', () => {
     const canvas = h.indexOf('id="canvas"');

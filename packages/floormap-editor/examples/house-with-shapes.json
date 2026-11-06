@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "3.0",
+  "id": "house-with-shapes",
+  "name": "House with room shapes",
+  "buildingDefaults": { "wallThickness": 0.16, "wallHeight": 2.4, "floorThickness": 0.12 },
+  "rooms": [
+    {
+      "id": "living", "name": "Living room", "type": "living-room", "sizeCategory": "large",
+      "layout": { "x": 0, "y": 0, "width": 6, "height": 5, "sizeLocked": true },
+      "outline": [[0, 0], [6, 0], [6, 3], [3, 3], [3, 5], [0, 5]],
+      "connectors": [
+        { "id": "living-right-passage", "roomId": "living", "side": "right", "type": "open-passage", "offset": 1.5, "width": 1.2 },
+        { "id": "living-bottom-door", "roomId": "living", "side": "bottom", "type": "door", "offset": 1.5, "width": 0.9, "doorType": "hinged", "door": { "hinge": "left", "swing": "inward", "openAngle": 85 } },
+        { "id": "living-top-window", "roomId": "living", "side": "top", "type": "window", "offset": 3, "width": 1.2, "window": { "type": "fixed", "sillHeight": 0.8, "headHeight": 2.1, "frameDepth": 0.08 } }
+      ]
+    },
+    {
+      "id": "kitchen", "name": "Kitchen", "type": "kitchen", "sizeCategory": "medium",
+      "layout": { "x": 6, "y": 0, "width": 4, "height": 3 },
+      "connectors": [
+        { "id": "kitchen-left-passage", "roomId": "kitchen", "side": "left", "type": "open-passage", "offset": 1.5, "width": 1.2 },
+        { "id": "kitchen-bottom-door", "roomId": "kitchen", "side": "bottom", "type": "door", "offset": 2, "width": 0.9, "doorType": "hinged", "door": { "hinge": "left", "swing": "inward", "openAngle": 85 } },
+        { "id": "kitchen-right-door", "roomId": "kitchen", "side": "right", "type": "door", "offset": 2, "width": 0.9, "doorType": "hinged", "door": { "hinge": "left", "swing": "inward", "openAngle": 85 } },
+        { "id": "kitchen-top-window", "roomId": "kitchen", "side": "top", "type": "window", "offset": 2, "width": 1.2, "window": { "type": "fixed", "sillHeight": 0.8, "headHeight": 2.1, "frameDepth": 0.08 } }
+      ]
+    },
+    {
+      "id": "study", "name": "Study with bay", "type": "office", "sizeCategory": "medium",
+      "layout": { "x": 10, "y": 0, "width": 4, "height": 4, "sizeLocked": true },
+      "outline": [[1, 0], [3, 0], [3, 1], [4, 1], [4, 4], [0, 4], [0, 1], [1, 1]],
+      "connectors": [
+        { "id": "study-left-door", "roomId": "study", "side": "left", "type": "door", "offset": 2, "width": 0.9, "doorType": "hinged", "door": { "hinge": "right", "swing": "outward", "openAngle": 85 } },
+        { "id": "study-top-window", "roomId": "study", "side": "top", "type": "window", "offset": 2, "width": 1.2, "window": { "type": "fixed", "sillHeight": 0.8, "headHeight": 2.1, "frameDepth": 0.08 } }
+      ]
+    },
+    {
+      "id": "hall", "name": "T hall", "type": "hallway", "sizeCategory": "small",
+      "layout": { "x": 6, "y": 3, "width": 4, "height": 3, "sizeLocked": true },
+      "outline": [[0, 0], [4, 0], [4, 1], [3, 1], [3, 3], [1, 3], [1, 1], [0, 1]],
+      "connectors": [
+        { "id": "hall-top-door", "roomId": "hall", "side": "top", "type": "door", "offset": 2, "width": 0.9, "doorType": "hinged", "door": { "hinge": "right", "swing": "outward", "openAngle": 85 } },
+        { "id": "hall-bottom-door", "roomId": "hall", "side": "bottom", "type": "door", "offset": 1.5, "width": 0.9, "doorType": "hinged", "door": { "hinge": "left", "swing": "inward", "openAngle": 85 } }
+      ]
+    },
+    {
+      "id": "bedroom", "name": "U bedroom", "type": "bedroom", "sizeCategory": "large",
+      "layout": { "x": 0, "y": 5, "width": 5, "height": 4, "sizeLocked": true },
+      "outline": [[0, 0], [5, 0], [5, 4], [3.5, 4], [3.5, 3], [1.5, 3], [1.5, 4], [0, 4]],
+      "connectors": [
+        { "id": "bedroom-top-door", "roomId": "bedroom", "side": "top", "type": "door", "offset": 1.5, "width": 0.9, "doorType": "hinged", "door": { "hinge": "right", "swing": "outward", "openAngle": 85 } },
+        { "id": "bedroom-right-door", "roomId": "bedroom", "side": "right", "type": "door", "offset": 2.5, "width": 0.9, "doorType": "hinged", "door": { "hinge": "left", "swing": "inward", "openAngle": 85 } }
+      ]
+    },
+    {
+      "id": "bath", "name": "Bathroom", "type": "bathroom", "sizeCategory": "small",
+      "layout": { "x": 5, "y": 6, "width": 3, "height": 3 },
+      "connectors": [
+        { "id": "bath-top-door", "roomId": "bath", "side": "top", "type": "door", "offset": 2.5, "width": 0.9, "doorType": "hinged", "door": { "hinge": "right", "swing": "outward", "openAngle": 85 } },
+        { "id": "bath-left-door", "roomId": "bath", "side": "left", "type": "door", "offset": 1.5, "width": 0.9, "doorType": "hinged", "door": { "hinge": "right", "swing": "outward", "openAngle": 85 } }
+      ]
+    }
+  ],
+  "relationships": [
+    { "id": "living-kitchen", "connectorA": "living-right-passage", "connectorB": "kitchen-left-passage", "importance": "required" },
+    { "id": "living-bedroom", "connectorA": "living-bottom-door", "connectorB": "bedroom-top-door", "importance": "required" },
+    { "id": "kitchen-hall", "connectorA": "kitchen-bottom-door", "connectorB": "hall-top-door", "importance": "required" },
+    { "id": "kitchen-study", "connectorA": "kitchen-right-door", "connectorB": "study-left-door", "importance": "required" },
+    { "id": "hall-bath", "connectorA": "hall-bottom-door", "connectorB": "bath-top-door", "importance": "required" },
+    { "id": "bedroom-bath", "connectorA": "bedroom-right-door", "connectorB": "bath-left-door", "importance": "required" }
+  ],
+  "wallAlignments": [],
+  "entitySettings": { "coordinates": "room", "gridStep": 0.1 },
+  "objects": [
+    { "id": "kitchen-refrigerator", "type": "refrigerator", "name": "Refrigerator", "roomId": "kitchen", "position": [0.325, 0.5], "facingDegrees": 90, "width": 0.6, "depth": 0.65, "height": 1.85, "elevation": 0, "category": "appliance" },
+    { "id": "living-sofa", "type": "sofa", "name": "Sofa", "roomId": "living", "position": [2, 2.45], "facingDegrees": 0, "width": 2, "depth": 0.9, "height": 0.85, "elevation": 0, "category": "furniture" },
+    { "id": "living-tv", "type": "tv", "name": "TV", "roomId": "living", "position": [2, 0.1], "facingDegrees": 180, "width": 1.2, "depth": 0.08, "height": 0.7, "elevation": 0.9, "category": "appliance" },
+    { "id": "bedroom-bed-double", "type": "bed-double", "name": "Double bed", "roomId": "bedroom", "position": [3, 1.2], "facingDegrees": 180, "width": 1.6, "depth": 2, "height": 0.5, "elevation": 0, "category": "furniture" },
+    { "id": "bedroom-wardrobe", "type": "wardrobe", "name": "Wardrobe", "roomId": "bedroom", "position": [4.7, 1.5], "facingDegrees": 270, "width": 1, "depth": 0.6, "height": 2, "elevation": 0, "category": "furniture" },
+    { "id": "bath-washing-machine", "type": "washing-machine", "name": "Washing machine", "roomId": "bath", "position": [0.3, 0.5], "facingDegrees": 90, "width": 0.6, "depth": 0.6, "height": 0.85, "elevation": 0, "category": "appliance" }
+  ],
+  "entityPlacements": [
+    { "id": "living-light", "type": "light", "name": "Living light", "roomId": "living", "position": [3, 1.5], "height": 2.2 },
+    { "id": "living-leg-light", "type": "light", "name": "Living light (leg of the L)", "roomId": "living", "position": [1.5, 4], "height": 2.2 },
+    { "id": "study-bay-light", "type": "light", "name": "Study bay light", "roomId": "study", "position": [2, 0.5], "height": 2.2 },
+    { "id": "hall-motion-sensor", "type": "motion-sensor", "name": "Hall motion", "roomId": "hall", "position": [2, 2], "height": 2.1, "facingDegrees": 0, "fieldOfViewDegrees": 100, "range": 3.5 },
+    { "id": "kitchen-refrigerator-door-contact", "type": "door-contact", "name": "Refrigerator door", "objectId": "kitchen-refrigerator", "position": [0, 0], "height": 1.85 },
+    { "id": "kitchen-refrigerator-environment-sensor", "type": "environment-sensor", "name": "Refrigerator temperature", "objectId": "kitchen-refrigerator", "position": [0, 0.15], "height": 1.85 },
+    { "id": "living-sofa-motion-sensor", "type": "motion-sensor", "name": "Sofa presence", "objectId": "living-sofa", "position": [0, 0], "height": 0.85, "facingDegrees": 0, "fieldOfViewDegrees": 100, "range": 3.5 },
+    { "id": "bedroom-bed-double-motion-sensor", "type": "motion-sensor", "name": "Bed presence", "objectId": "bedroom-bed-double", "position": [0, 0], "height": 0.5, "facingDegrees": 180, "fieldOfViewDegrees": 100, "range": 3.5 },
+    { "id": "bath-washing-machine-water-leak", "type": "water-leak", "name": "Washing machine leak", "objectId": "bath-washing-machine", "position": [0, 0], "height": 0.85 }
+  ]
+}

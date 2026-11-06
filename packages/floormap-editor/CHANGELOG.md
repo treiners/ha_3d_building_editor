@@ -2,9 +2,31 @@
 
 This file covers the package `floormap-editor` (formerly `room-graph-mapping-v2.14-preview`) only; the suite timeline is in the root `CHANGELOG.md`.
 
-## Unreleased
+## 3.2.0
 
 ### Added
+- **Rename room:** pencil button next to the trash icon in the room box (or **F2**): the heading becomes a text field, Enter confirms, Esc cancels, one undo step. Pure `renameRoom` (`src/rename.ts`): 1 to 40 characters, unique among the rooms of the floor, `Outside` neither renamed nor usable as a name; the id never changes, so connectors, entities and objects keep working.
+- **Free object categories:** `category` of object types and objects is free text (lower case, 1 to 32 characters) instead of `appliance` | `furniture`; the Types tab has a category box with suggestions, the palette groups by category (for example `sanitary`, `outdoor`). Old files are valid unchanged.
+- **Grouped toolbar (opt-in):** Settings > Interface > Toolbar. Fixed row 1 (Load / Save, Undo / Redo, layer buttons), fixed row 2 (tools are dimmed instead of hidden in other modes), Issues / Export in the fixed slot `#tb-extra`, zoom and grid in the status bar. `Current` stays the default.
+- **Tool hotkeys:** `C` Drag corners, `W` Drag walls, `S` Shape.
+- **Heights, openings, touch, dock, autosave, entities per connector:** see `docs/V3.2-HEIGHTS-WINDOWS-TOUCH.md` and `docs/HANDOVER-3.2.md`.
+
+### Changed
+- The tool **Move rooms** is now called **Drag corners** (it still moves rooms); no corner handles are drawn while **Drag walls** is active, because the wall strips are on the same spot.
+- Issues and Export buttons are added to one fixed toolbar slot instead of being inserted before the file buttons (their order no longer depends on script order).
+- `defaults.test`: a sliding door gets `door: { slide: 'start' }` (expectation updated on request; the code already did this).
+
+## 3.1.0
+
+### Added
+- **Fan as a fan:** the `fan` object is drawn as a ceiling fan (ring, four blades, hub; turns with the object's facing) with its label below. **Tree kind:** `areas[].species` (optional text, `tree` areas, suggestions in the field, shown in the label). **Min / max room size** settings (Layout, metres, empty = automatic) for the wall tools, corners and the Free-mode corner resize.
+- **Export** (toolbar `Export`): the plan as shown, without editing handles, as SVG (vector), PNG (2400 px wide) or a one-page PDF (built in, no library); white background, scale bar and north arrow (from the compass), current floor only.
+- **Dimensions and areas:** two toolbar toggles (`m` wall lengths, `m²` room areas; remembered in the browser) draw labels on the plan, and an `Areas` card at the end of the Building tab lists the floor area of every room, per floor and in total. Nothing is stored in the file; pure `roomAreas` / `wallLabels` in `src/dimensions.ts` (L rooms are measured on their outline).
+- **Issues panel:** toolbar button `Issues` (count, green tick when clean) lists every error and warning of the file as it would be saved; a row selects the item (where the mode allows) and zooms to it. `checkContract(graph, true)` adds a `target` ({ kind, id }) to issues that point at one item.
+- **Shaped areas** (`areas[].outline`, optional, same rules as a room outline): drag a wall of a selected rectangular area in Site mode (Shift + drag pulls a bump or notch, width in the side panel), `Make rectangle` resets it. **Merge areas:** Shift-click a second area, then `Merge`; only areas of the same kind and the same roofed state merge, they may touch or overlap, ellipses cannot. Areas are checked against the real outline of shaped rooms (an area in a notch is no overlap) and areas snap to the real walls of rooms. Contract errors `area-outline-invalid` / `area-outline-bounds`. Pure module `src/area-shape.ts`.
+- **Shared walls in the Shape tool:** a wall (or bump / notch) connected to ONE other room now moves for both rooms (the neighbour loses what the room gains and vice versa, doors and windows follow the wall, one undo step); `reshapeWithPartner` / `shapeWallPartners` in `room-shape.ts`. Several connected rooms, a size-locked or corner-locked neighbour, a neighbour that would get thinner than 0.3 m and (Block overlaps) a third room in the way still refuse.
+- **Merge rooms:** Shift-click two rooms, `Merge into <first room>` (pure `mergeRooms`): the union becomes one (shaped) room.
+- **Tree area kind** (trunk = centre, canopy may overhang rooms; key C hides canopies), **room colours** in settings, **layer toggles** (Rooms / Site / Entities / Objects), **double-click a room to zoom**, Slide + pull is the default move mode.
 - **Floor shortcuts and Fit:** PageUp / PageDown switch floors; Fit (toolbar) fits all floors.
 - **Storey height per floor** (`floors[].height`, optional; written on save together with the derived `elevation`).
 - **Stairs between floors** (`graph.stairs`, optional): a rectangle (length, width, direction) between two adjacent floors, drawn on both floors with treads and a thick bar where it lands (start on the lower floor, end on the upper); `+ Stair`, drag, panel; derived `fromRoom` / `toRoom` on save; contract check warns about ends outside rooms. Replaces the earlier room-pair link (old files are converted).

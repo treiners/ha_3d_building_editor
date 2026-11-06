@@ -13,7 +13,7 @@ describe('sidebar panels and connector table', () => {
   });
   it('every tab starts with a panel (no bare headings) and the other blocks are panels too', () => {
     for (const t of ['sec-layout', 'sec-connectors', 'sec-building']) assert.ok(side.includes('<div class="sec ' + t + '"><div class="card">'), t);
-    for (const h of ['Rooms', 'Wall alignment', 'Connectors', 'Add connector', 'Building', 'Place', 'Entities', 'Add area', 'Layout', 'Entities', 'Interface']) assert.ok(side.includes('<div class="card"><h2>' + h) || side.includes('<div class="card"><div class="sechead"><h2>' + h), h);
+    for (const h of ['Add', 'Wall alignment', 'Connectors', 'Building', 'Place', 'Entities', 'Add area', 'Layout', 'Entities', 'Interface']) assert.ok(side.includes('<div class="card"><h2>' + h) || side.includes('<div class="card"><div class="sechead"><h2>' + h), h);
   });
   it('the markup of the sidebar is balanced (every panel is closed)', () => {
     assert.equal((side.match(/<div[\s>]/g) || []).length, (side.match(/<\/div>/g) || []).length);
@@ -28,16 +28,17 @@ describe('sidebar panels and connector table', () => {
   });
 });
 
-describe('Connectors tab order, room panel, structured inspector', () => {
-  it('order: Add connector first, Connectors table second, the selected-connector inspector (#panel-conn) third; nothing else in the tab', () => {
-    const a = connSec.indexOf('<h2>Add connector'), b = connSec.indexOf('<h2>Connectors<span'), c = connSec.indexOf('id="panel-conn"');
-    assert.ok(a > 0 && b > a && c > b);
+describe('Plan tab order, room panel, structured inspector', () => {
+  const laySec = side.slice(at('<div class="sec sec-layout">'), at('<div class="sec sec-connectors">'));
+  it('order: the Add card (room, door, passage, window, connect) comes first in the Plan tab, then Wall alignment; the Connectors table second section, the selected-connector inspector (#panel-conn) after it; nothing else', () => {
+    const a = laySec.indexOf('<h2>Add<span'), w = laySec.indexOf('<h2>Wall alignment'), b = connSec.indexOf('<h2>Connectors<span'), c = connSec.indexOf('id="panel-conn"');
+    assert.ok(a > 0 && w > a && b > 0 && c > b);
     assert.equal(connSec.includes('Connection settings'), false);
-    assert.ok(connSec.indexOf('id="connect-rooms"') > a && connSec.indexOf('id="connect-rooms"') < b, 'Connect lives in the Add connector panel');
+    for (const id of ['add-toggle', 'data-addop="door"', 'data-addop="open-passage"', 'data-addop="window"', 'id="connect-rooms"']) assert.ok(laySec.indexOf(id) > a && laySec.indexOf(id) < w, id + ' lives in the Add card');
   });
-  it('the explanation of Add connector is a hover tip, not a paragraph; the tip css shows it on hover and focus', () => {
-    const add = connSec.slice(connSec.indexOf('<h2>Add connector'), connSec.indexOf('<h2>Connectors<span'));
-    assert.ok(add.includes('<span class="tip" tabindex="0">i<span class="tipbox">Pick a type, then click on a wall'));
+  it('the explanation of Add is a hover tip, not a paragraph; the tip css shows it on hover and focus', () => {
+    const add = laySec.slice(laySec.indexOf('<h2>Add<span'), laySec.indexOf('<h2>Wall alignment'));
+    assert.ok(add.includes('<span class="tip" tabindex="0">i<span class="tipbox">+ Room adds a room'));
     assert.equal(add.includes('<div class="mini">Pick a type'), false);
     assert.ok(css.includes('.tipbox{display:none;') && css.includes('.tip:hover .tipbox,.tip:focus .tipbox{display:block}'));
   });
@@ -58,10 +59,10 @@ describe('settings view (gear)', () => {
     assert.ok(head.indexOf('<h1>Room mapping 3.0 beta</h1>') < head.indexOf('id="gear"') && head.indexOf('id="gear"') < head.indexOf('id="settings-view"'));
     assert.ok(css.includes('.sidehead{display:flex;align-items:center;justify-content:space-between'));
   });
-  it('all setting options are collected in sections: Layout, Connectors, Entities, Interface (ids unchanged, each exactly once)', () => {
+  it('all setting options are collected in sections: Layout, Connectors, Entities, Colours, Interface (ids unchanged, each exactly once)', () => {
     const view = side.slice(at('id="settings-view"'), at('<div class="modes">'));
     const sections = [...view.matchAll(/<div class="card"><h2>([^<]+)<\/h2>/g)].map(m => m[1]);
-    assert.deepEqual(sections, ['Layout', 'Connectors', 'Entities', 'Interface']);
+    assert.deepEqual(sections, ['Layout', 'Connectors', 'Entities', 'Colours', 'Interface']);
     for (const id of ['no-overlap', 'glue-touch', 'show-bars', 'new-conn', 'new-width', 'new-door', 'ent-cov', 'ent-resize', 'classic']) { assert.equal((html.slice(0, html.indexOf('<script>')).match(new RegExp(' id="' + id + '"', 'g')) || []).length, 1, id); assert.ok(view.includes(' id="' + id + '"'), id + ' is in the settings view'); }
     assert.equal(side.includes('<summary>Settings'), false);
   });

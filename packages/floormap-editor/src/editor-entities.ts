@@ -20,6 +20,8 @@ const ICONS: Record<string, string> = {
   thermostat: 'M12 4a8 8 0 100 16 8 8 0 000-16zM12 12l3-3',
   lock: 'M6 11h12v9H6zM8 11V8a4 4 0 018 0v3',
   cover: 'M4 4h16v4H4zM4 11h16M4 14h16M4 17h16M12 17v3',
+  'fan-speed': 'M12 11.2a.8.8 0 100 1.6.8.8 0 000-1.6zM12 11C12 6 9.5 4 7.5 5.5S8 10 11.3 11M13 12c5 0 7 2.5 5.5 4.5S14 16.5 12.8 13M12 13c0 5-2.5 7-4.5 5.5S8 14 11.2 13',
+  'fan-direction': 'M20 12a8 8 0 10-2.7 6M20 5v5h-5',
 };
 
 export const entityCss =
@@ -34,7 +36,8 @@ export const entityCss =
   '.ent-label{font-size:.34px;text-anchor:middle;fill:#17202a;pointer-events:none;paint-order:stroke;stroke:#fff;stroke-width:.08}.ent-cone{fill:rgba(20,184,166,.14);stroke:#0d9488;stroke-width:.02;pointer-events:none}.ent-cone.sel{fill:rgba(20,184,166,.28);stroke-width:.04}' +
   '.ent-h{fill:#fff;stroke:#0d9488;stroke-width:.05;cursor:grab}.ent-hl{stroke:#0d9488;stroke-width:.03;stroke-dasharray:.1 .08;pointer-events:none}.ent-target{fill:rgba(249,115,22,.18);stroke:#f97316;stroke-width:.05;pointer-events:none}.ent-outside{fill:none;stroke:#94a3b8;stroke-dasharray:.2 .15;stroke-width:.04;pointer-events:none}' +
   '.ent-box{fill:rgba(37,99,235,.08);stroke:#2563eb;stroke-width:.03;stroke-dasharray:.12 .08;pointer-events:none}.ent-hint{fill:rgba(249,115,22,.08);stroke:#f97316;stroke-width:.06;stroke-dasharray:.2 .12;pointer-events:none}.ehint{display:flex;gap:4px;align-items:center;font-size:12px;margin:3px 0;cursor:pointer}.ehint span{flex:1}.ehint.on{background:#fff1c9}.ehint button{margin:0;padding:0 6px}.ent-ring{fill:none;stroke:#f97316;stroke-width:.05;stroke-dasharray:.1 .08;pointer-events:none}.entside [data-epane]{display:none}.entside[data-tab=place] [data-epane=place],.entside[data-tab=list] [data-epane=list]{display:block}' +
-  '.etable{width:100%;border-collapse:collapse;font-size:12px;margin:6px 0}.etable td,.etable th{padding:3px 4px;border-bottom:1px solid #e2e8f0;text-align:left}.etable tr[data-erow]{cursor:pointer}.etable tr.on{background:#fff1c9}.etable .w{color:#b91c1c}.efilters{display:flex;gap:6px}.efilters select{flex:1}.entside .ewarn[data-erow]{cursor:pointer}';
+  '.etable{width:100%;border-collapse:collapse;font-size:12px;margin:6px 0}.etable td,.etable th{padding:3px 4px;border-bottom:1px solid #e2e8f0;text-align:left}.etable tr[data-erow]{cursor:pointer}.etable tr.on{background:#fff1c9}.etable .w{color:#b91c1c}.efilters{display:flex;gap:6px}.efilters select{flex:1}.entside .ewarn[data-erow]{cursor:pointer}' +
+  '.ent-cl{cursor:pointer}.ent-cbadge{fill:#17202a;stroke:#fff;stroke-width:.04}.ent-cnum{fill:#fff;font-size:.28px;text-anchor:middle;dominant-baseline:middle;pointer-events:none}.ent-cring{fill:rgba(255,255,255,.55);stroke:#94a3b8;stroke-width:.04;stroke-dasharray:.1 .08}';
 
 export const entitySwitchHtml = '<div class="appsw"><button data-app-btn="plan" class="active">Floor plan</button><button data-app-btn="site">Site</button><button data-app-btn="entities">Entities</button><button data-app-btn="objects">Objects</button></div>';
 
@@ -52,30 +55,42 @@ const entList=()=>g.entityPlacements||[],entGet=id=>entList().find(e=>e.id===id)
 const entSel=()=>(selE?[selE]:[...selM]).filter(id=>entGet(id));
 function entSetSel(ids){ids=ids.filter(id=>entGet(id));if(ids.length>1){selM=new Set(ids);selE=null}else{selM=new Set();selE=ids[0]||null}}
 function entSelectAll(){const en=entGet(entSel()[0]),r=en&&entityHost(g,en);if(r){const L=r.layout;entSetSel(entitiesInBox(g,L.x,L.y,L.x+L.width,L.y+L.height))}else entSetSel(entList().map(e=>e.id));render()}
-function entCopy(){const all=entSel(),items=all.map(entGet).filter(e=>e&&(e.roomId||e.areaId)).map(e=>{const w=entityWorld(g,e);return{entity:JSON.parse(JSON.stringify(e)),x:w.x,y:w.y}});if(!items.length){entMsg('Nothing to copy: connector entities stay on their connector.');return}entUi.entClip=items;entMsg('Copied '+items.length+(items.length===1?' entity':' entities')+(all.length>items.length?' ('+(all.length-items.length)+' connector-bound skipped)':'')+'.')}
+function entCopy(){const all=entSel(),items=all.map(entGet).filter(e=>e&&(e.roomId||e.areaId||e.objectId)).map(e=>{const w=entityWorld(g,e);return{entity:JSON.parse(JSON.stringify(e)),x:w.x,y:w.y}});if(!items.length){entMsg('Nothing to copy: connector entities stay on their connector.');return}entUi.entClip=items;entMsg('Copied '+items.length+(items.length===1?' entity':' entities')+(all.length>items.length?' ('+(all.length-items.length)+' connector-bound skipped)':'')+'.')}
 function entPaste(){if(!entUi.entClip){entMsg('Nothing copied yet.');return}const mx=Math.min(...entUi.entClip.map(i=>i.x)),my=Math.min(...entUi.entClip.map(i=>i.y)),hb=JSON.stringify(g),r=pasteEntities({graph:g,items:entUi.entClip,dx:entUi.entPtr?entUi.entPtr.x-mx:.3,dy:entUi.entPtr?entUi.entPtr.y-my:.3,step:entStep()});if(r.ok){g=r.graph;entSetSel(r.ids);rec(hb)}entMsg(r.message);render()}
 const entStep=()=>{const s=g.entitySettings&&+g.entitySettings.gridStep;return s>0?s:.1};
 function entLoad(){if(g.entitySettings&&g.entitySettings.coordinates==='plan')g=convertEntityCoordinates(g,'room');selE=null;selM=new Set();entUi.entSizes=null}
 entLoad();
 function entMsg(t){$('status').textContent=t}
 function entApply(res,hb,keepSel){entMsg(res.message);if(!res.ok)return false;g=res.graph;if(!keepSel)selE=res.id;rec(hb);return true}
-function entPartnerHas(t,cid){const l=linkFor(cid),ids=[cid];if(l)ids.push(l.connectorA===cid?l.connectorB:l.connectorA);return entList().some(e=>e.type===t&&ids.includes(e.connectorId))}
+function entUsedRoles(t,cid){const l=linkFor(cid),ids=[cid];if(l)ids.push(l.connectorA===cid?l.connectorB:l.connectorA);const R=entityCatalog()[t].roles;return entList().filter(e=>e.type===t&&ids.includes(e.connectorId)).map(e=>R?(e.role||R[0]):'')}
+function entTiltable(cid){const p=port(cid);return !!p&&(p.type==='window'?['tilt','tilt-turn'].includes(p.window&&p.window.type):!!(p.door&&p.door.tilt))}
+function entFreeRole(t,cid){const R=entityCatalog()[t].roles,u=entUsedRoles(t,cid);return R?(R.find(r=>!u.includes(r)&&(r!=='tilt'||entTiltable(cid)))||R[0]):'-'}
+function entPartnerHas(t,cid){return false}
 function entSetApp(m){appMode=m;document.body.dataset.app=m;for(const b of document.querySelectorAll('[data-app-btn]'))b.classList.toggle('active',b.dataset.appBtn===m);entUi.placing=null;entUi.eact=null;active=null;document.body.dataset.placing='';if(m!=='plan'){sel.clear();selPort=null;mode='mapping';$('mapping').classList.add('active');$('gap').classList.remove('active');$('tool').value='rooms';entMsg(m==='objects'?'Objects: pick a type to place, then click inside a room or area. Rooms are read-only here.':m==='site'?'Site: draw decks, driveways, ponds and the plot. Rooms are read-only here.':'Entities: the floor plan is locked. Pick a type to place, or click an entity.')}else{selE=null;selM=new Set();entMsg('Floor plan editing.')}render()}
+function entKey(o){return (linkFor(o.connectorId)||{}).id||o.connectorId}
+function entOpen(k,ck){return entUi.hov===k||ck.some(o=>o.id===selE||selM.has(o.id))}
+function entRingR(n){return Math.max(.62,n*.55/(2*Math.PI))}
+function entRingPos(i,n,w0){const a=-Math.PI/2+i*2*Math.PI/n,R=entRingR(n);return[w0.x+R*Math.cos(a),w0.y+R*Math.sin(a)]}
+function entOff(e){if(!e.connectorId)return[0,0];const p=port(e.connectorId);if(!p)return[0,0];const grp=entList().filter(o=>o.connectorId&&entKey(o)===entKey(e));if(grp.length!==2)return[0,0];const d=(grp.indexOf(e)-.5)*.55;return p.side==='top'||p.side==='bottom'?[d,0]:[0,d]}
 function entLayer(){
 if(appMode!=='entities')return'';
 if(selE&&!entGet(selE))selE=null;if(selE)selM=new Set();else{for(const id of [...selM])if(!entGet(id))selM.delete(id);if(selM.size===1){selE=[...selM][0];selM=new Set()}}
-const cat=entityCatalog(),bad=new Set(validateEntities(g).map(i=>i.id));let ou='',cone='',mk='',hd='',tg='',hl='';
+const cat=entityCatalog(),bad=new Set(validateEntities(g).map(i=>i.id));let ou='',cone='',mk='',hd='',tg='',hl='',cl='';
 for(const r of g.rooms)if(r.layout&&r.name.toLowerCase()==='outside')ou+='<rect class="ent-outside" x="'+r.layout.x+'" y="'+r.layout.y+'" width="'+r.layout.width+'" height="'+r.layout.height+'"/>';
-for(const e of entList()){const w=entityWorld(g,e);if(!w)continue;const c=cat[e.type]||{},s=e.id===selE,ms=selM.has(e.id);
+const cg={};for(const e of entList())if(e.connectorId)(cg[entKey(e)]=cg[entKey(e)]||[]).push(e);
+for(const k of Object.keys(cg)){const ck=cg[k];if(ck.length<3)continue;const w0=entityWorld(g,ck[0]);if(!w0)continue;
+if(entOpen(k,ck))cl+='<g class="ent-cl" data-ecl="'+entEsc(k)+'"><circle class="ent-cring" cx="'+w0.x+'" cy="'+w0.y+'" r="'+(entRingR(ck.length)+.32)+'"/></g>';
+else cl+='<g class="ent-cl" data-ecl="'+entEsc(k)+'" transform="translate('+w0.x+','+w0.y+')"><circle class="ent-cbadge" r=".3"/><text class="ent-cnum" y=".1">'+ck.length+'</text><title>'+ck.length+' entities (hover to show)</title></g>'}
+for(const e of entList()){const w0=entityWorld(g,e);if(!w0)continue;const od=entOff(e);let w={x:w0.x+od[0],y:w0.y+od[1]};const ck=e.connectorId&&cg[entKey(e)];if(ck&&ck.length>2){if(!entOpen(entKey(e),ck))continue;const rp=entRingPos(ck.indexOf(e),ck.length,w0);w={x:rp[0],y:rp[1]}}const c=cat[e.type]||{},s=e.id===selE,ms=selM.has(e.id);
 if(c.directional&&(s||entUi.entCov)){const p=coverageSector(w.x,w.y,e.facingDegrees??0,e.fieldOfViewDegrees??100,e.range??3.5);cone+='<polygon class="ent-cone'+(s?' sel':'')+'" points="'+p.map(q=>q.join(',')).join(' ')+'"/>'}
-mk+='<g class="ent'+(s||ms?' sel':'')+(bad.has(e.id)?' bad':'')+'" data-ent="'+entEsc(e.id)+'" transform="translate('+w.x+','+w.y+')"><circle r=".24"/><path d="'+(ENT_ICONS[e.type]||'M12 12v.01')+'" transform="scale(.018) translate(-12,-12)"/></g>';
+mk+='<g class="ent'+(s||ms?' sel':'')+(bad.has(e.id)?' bad':'')+'" data-ent="'+entEsc(e.id)+'"'+(ck&&ck.length>2?' data-ecl="'+entEsc(entKey(e))+'"':'')+' transform="translate('+w.x+','+w.y+')"><circle r=".24"/><path d="'+(ENT_ICONS[e.type]||'M12 12v.01')+'" transform="scale(.018) translate(-12,-12)"/></g>';
 if(s||ms)mk+='<circle class="ent-ring" cx="'+w.x+'" cy="'+w.y+'" r=".42"/>';if(s)mk+='<text class="ent-label" x="'+w.x+'" y="'+(w.y+.55)+'">'+entEsc(e.name||e.id)+'</text>';
 if(s&&c.directional){const f=e.facingDegrees||0,fv=e.fieldOfViewDegrees||100,rg=e.range||3.5,pt=(a,d)=>[w.x+d*Math.sin(a*Math.PI/180),w.y-d*Math.cos(a*Math.PI/180)],hf=pt(f,Math.min(.6,rg*.6)),hr=pt(f,rg),hv=pt(f+fv/2,rg);
 hd+='<line class="ent-hl" x1="'+w.x+'" y1="'+w.y+'" x2="'+hr[0]+'" y2="'+hr[1]+'"/><circle class="ent-h" data-ehandle="facing" cx="'+hf[0]+'" cy="'+hf[1]+'" r=".12"><title>Facing</title></circle><circle class="ent-h" data-ehandle="range" cx="'+hr[0]+'" cy="'+hr[1]+'" r=".1"><title>Range</title></circle><circle class="ent-h" data-ehandle="fov" cx="'+hv[0]+'" cy="'+hv[1]+'" r=".1"><title>Field of view</title></circle>'}}
 if(entUi.placing&&cat[entUi.placing].anchor==='connector')for(const p of ports()){if(cat[entUi.placing].connectorTypes.indexOf(p.type)<0||entPartnerHas(entUi.placing,p.id))continue;const w=entityWorld(g,{connectorId:p.id});if(w)tg+='<circle class="ent-target" cx="'+w.x+'" cy="'+w.y+'" r=".34"/>'}
 if(entUi.entHint){const h=coverageHints(g).find(x=>x.key===entUi.entHint);if(!h)entUi.entHint=null;else if(h.target.roomId){const r=room(h.target.roomId);if(r&&r.layout)hl='<rect class="ent-hint" x="'+r.layout.x+'" y="'+r.layout.y+'" width="'+r.layout.width+'" height="'+r.layout.height+'"/>'}else{const w=entityWorld(g,{connectorId:h.target.connectorId});if(w)hl='<circle class="ent-hint" cx="'+w.x+'" cy="'+w.y+'" r=".42"/>'}}
 if(entUi.eact&&entUi.eact.kind==='box')hl+='<rect class="ent-box" x="'+Math.min(entUi.eact.x0,entUi.eact.x1)+'" y="'+Math.min(entUi.eact.y0,entUi.eact.y1)+'" width="'+Math.abs(entUi.eact.x1-entUi.eact.x0)+'" height="'+Math.abs(entUi.eact.y1-entUi.eact.y0)+'"/>';
-return'<g class="entlayer">'+ou+hl+cone+mk+hd+tg+'</g>'}
+return'<g class="entlayer">'+ou+hl+cone+cl+mk+hd+tg+'</g>'}
 function entParent(e){if(e.objectId){const o=(g.objects||[]).find(x=>x.id===e.objectId);return o?(o.name||o.type)+' (object)':e.objectId+' (missing object)'}if(e.areaId){const a=(g.areas||[]).find(x=>x.id===e.areaId);return a?a.name+' (area)':e.areaId+' (missing area)'}if(e.roomId){const r=room(e.roomId);return r?r.name:e.roomId+' (missing)'}const p=port(e.connectorId);return p?room(p.roomId).name+': '+p.side+' '+p.type:e.connectorId+' (missing)'}
 function entListPanel(){
 const cat=entityCatalog(),issues=validateEntities(g),bad=new Set(issues.map(i=>i.id)),own=e=>e.areaId?'area:'+e.areaId:e.roomId||(e.objectId?(entityWorld(g,e)||{}).roomId:(port(e.connectorId)||{}).roomId),rooms=[...new Set(entList().map(own).filter(Boolean))];
@@ -83,7 +98,7 @@ if(entUi.fRoom&&rooms.indexOf(entUi.fRoom)<0)entUi.fRoom='';
 $('ent-f-room').innerHTML='<option value="">All rooms</option>'+rooms.map(id=>'<option value="'+entEsc(id)+'"'+(id===entUi.fRoom?' selected':'')+'>'+entEsc((String(id).startsWith('area:')?((g.areas||[]).find(a=>'area:'+a.id===id)||{name:id}):(room(id)||{name:id})).name)+'</option>').join('');
 $('ent-f-type').innerHTML='<option value="">All types</option>'+Object.keys(cat).map(k=>'<option value="'+k+'"'+(k===entUi.fType?' selected':'')+'>'+cat[k].label+'</option>').join('');
 const rows=entList().filter(e=>(!entUi.fRoom||own(e)===entUi.fRoom)&&(!entUi.fType||e.type===entUi.fType));
-$('ent-list').innerHTML=rows.length?'<table class="etable"><tr><th>Name</th><th>Type</th><th>Parent</th><th>HA</th><th></th></tr>'+rows.map(e=>'<tr data-erow="'+entEsc(e.id)+'"'+(e.id===selE?' class="on"':'')+'><td>'+entEsc(e.name||e.id)+'</td><td>'+entEsc((cat[e.type]||{}).label||e.type)+'</td><td>'+entEsc(entParent(e))+'</td><td>'+entEsc(e.haEntityId||'')+'</td><td class="w">'+(bad.has(e.id)?'\\u26a0':'')+'</td></tr>').join('')+'</table>':'<div class="mini">No entities'+(entList().length?' match the filters':' yet')+'.</div>';
+$('ent-list').innerHTML=rows.length?'<table class="etable"><tr><th>Name</th><th>Type</th><th>Parent</th><th>HA</th><th></th></tr>'+rows.map(e=>'<tr data-erow="'+entEsc(e.id)+'"'+(e.id===selE?' class="on"':'')+'><td>'+entEsc(e.name||e.id)+'</td><td>'+entEsc((cat[e.type]||{}).label||e.type)+(e.role?' ('+entEsc(e.role)+')':'')+'</td><td>'+entEsc(entParent(e))+'</td><td>'+entEsc(e.haEntityId||'')+'</td><td class="w">'+(bad.has(e.id)?'\\u26a0':'')+'</td></tr>').join('')+'</table>':'<div class="mini">No entities'+(entList().length?' match the filters':' yet')+'.</div>';
 $('ent-diag-sum').textContent='Diagnostics ('+issues.length+')';
 $('ent-diag-body').innerHTML=issues.length?issues.map(i=>'<div class="ewarn" data-erow="'+entEsc(i.id)+'">'+entEsc(i.id+': '+i.message)+'</div>').join(''):'<div class="mini">No problems found.</div>'}
 function entMultiHtml(){const ids=entSel();if(ids.length<2)return'';const L=ids.map(entGet),cat=entityCatalog(),dir=L.every(e=>(cat[e.type]||{}).directional),b=(m,t)=>'<button data-align="'+m+'">'+t+'</button>',f=(k,l)=>'<label class="erow">'+l+' <input class="sm" data-mf="'+k+'" placeholder="keep"></label>';
@@ -103,18 +118,18 @@ if(!e){el.innerHTML=entMultiHtml();return}
 const c=cat[e.type]||{},tx=(k,l,v,ph)=>'<label class="erow">'+l+' <input data-ef="'+k+'" value="'+entEsc(v??'')+'" placeholder="'+(ph||'')+'"></label>',nm=(k,l,v)=>'<label>'+l+' <input class="sm" data-ef="'+k+'" value="'+v+'"></label>',nr=(k,l,v)=>'<label class="erow">'+l+' <input class="sm" data-ef="'+k+'" value="'+v+'"></label>';
 let parent;if(e.areaId||e.roomId||e.objectId){parent=entParent(e)}else{const p=port(e.connectorId);parent=p?room(p.roomId).name+': '+p.side+' '+p.type:e.connectorId+' (missing)'}
 const w=issues=>issues.map(i=>'<div class="ewarn">'+entEsc(i.message)+'</div>').join('');
-el.innerHTML='<div class="nm"><h2>'+entEsc(e.name||e.id)+'</h2><button id="ent-del" class="ib" title="Remove this entity">'+ICON_TRASH+'</button></div><div class="card">'+tx('name','Name',e.name,'optional')+tx('id','Id',e.id)+tx('haEntityId','HA entity',e.haEntityId,'light.living_ceiling')+'<div class="erow"><span>Type</span><span>'+entEsc(c.label||e.type)+'</span></div><div class="erow"><span>Parent</span><span>'+entEsc(parent)+'</span></div>'+
+el.innerHTML='<div class="nm"><h2>'+entEsc(e.name||e.id)+'</h2><button id="ent-del" class="ib" title="Remove this entity">'+ICON_TRASH+'</button></div><div class="card">'+tx('name','Name',e.name,'optional')+tx('id','Id',e.id)+tx('haEntityId','HA entity',e.haEntityId,'light.living_ceiling')+'<div class="erow"><span>Type</span><span>'+entEsc(c.label||e.type)+'</span></div><div class="erow"><span>Parent</span><span>'+entEsc(parent)+'</span></div>'+(c.roles&&e.connectorId?'<label class="erow">Role <select data-ef="role">'+c.roles.map(r=>'<option'+((e.role||c.roles[0])===r?' selected':'')+'>'+r+'</option>').join('')+'</select></label>':'')+
 ((e.roomId||e.areaId||e.objectId)?'<div class="erow2">'+nm('x','X',e.position?entRd(e.position[0]):0)+nm('y','Y',e.position?entRd(e.position[1]):0)+'<span class="mini">m from '+(e.objectId?'centre':'corner')+'</span></div>'+nr('height','Height m',e.height??''):'')+
 (c.directional?nr('facingDegrees','Facing \\u00b0',e.facingDegrees??0)+nr('fieldOfViewDegrees','Field of view \\u00b0',e.fieldOfViewDegrees??100)+nr('range','Range m',e.range??3.5):'')+(c.multi?'<div class="mini">Measures</div><div class="erow2 emulti">'+c.multi.options.map(o=>'<label><input type="checkbox" data-em="'+c.multi.field+'" data-opt="'+o+'"'+((e[c.multi.field]||[]).indexOf(o)>=0?' checked':'')+'> '+o+'</label>').join('')+'</div>':'')+((e.roomId||e.areaId)&&g.entitySettings&&g.entitySettings.resize==='anchor'?'<label class="erow">Anchor corner <select data-ef="anchorCorner"><option value="">auto</option>'+['tl','tr','bl','br'].map(k=>'<option'+(e.anchorCorner===k?' selected':'')+'>'+k+'</option>').join('')+'</select></label>':'')+w(validateEntities(g).filter(i=>i.id===e.id))+'</div>'}
 function entField(t){const e=entGet(selE);if(!e)return;const k=t.dataset.ef,hb=JSON.stringify(g),q=n=>parseFloat(t.closest('.card').querySelector('[data-ef='+n+']').value);let patch={};
-if(k==='x'||k==='y')patch.position=[q('x'),q('y')];else if(k==='name'||k==='id'||k==='haEntityId'||k==='anchorCorner')patch[k]=t.value;else patch[k]=parseFloat(t.value);
+if(k==='x'||k==='y')patch.position=[q('x'),q('y')];else if(k==='name'||k==='id'||k==='haEntityId'||k==='anchorCorner'||k==='role')patch[k]=t.value;else patch[k]=parseFloat(t.value);
 const r=updateEntity({graph:g,id:e.id,patch});if(entApply(r,hb))selE=r.id;render()}
 function entDelete(){const hb=JSON.stringify(g),ids=entSel();if(!ids.length)return;if(entApply(removeEntities({graph:g,ids}),hb,true)){selE=null;selM=new Set();render()}}
 function entPlace(P,e){const t=entUi.placing,hb=JSON.stringify(g),a=nearestAnchor(g,t,P.x,P.y,.8);
 if(!a){const c=entityCatalog()[t];entMsg(c.anchor==='room'?'Click inside a room'+(c.outdoor?' or an outdoor area (draw one in Site mode first).':'.'):'Click a highlighted '+c.connectorTypes.join(' or ')+'.');return}
-let res;if(a.connectorId){if(entPartnerHas(t,a.connectorId)){entMsg('This '+entityCatalog()[t].connectorTypes.join(' or ')+' already has a '+entityCatalog()[t].label.toLowerCase()+'.');return}res=addEntity({graph:g,type:t,connectorId:a.connectorId})}else res=addEntity({graph:g,type:t,roomId:a.roomId,areaId:a.areaId,at:P,step:e.altKey?0:entStep()});
+let res;if(a.connectorId){if(entPartnerHas(t,a.connectorId)){entMsg('This '+entityCatalog()[t].connectorTypes.join(' or ')+' already has a '+entityCatalog()[t].label.toLowerCase()+'.');return}res=addEntity({graph:g,type:t,connectorId:a.connectorId,role:entityCatalog()[t].roles?entFreeRole(t,a.connectorId):undefined})}else res=addEntity({graph:g,type:t,roomId:a.roomId,areaId:a.areaId,at:P,step:e.altKey?0:entStep()});
 if(entApply(res,hb)&&!e.shiftKey)entUi.placing=null;document.body.dataset.placing=entUi.placing||'';render()}
-function entDown(e){const h=e.target.closest('[data-ehandle]'),n=e.target.closest('[data-ent]');
+function entDown(e){const h=e.target.closest('[data-ehandle]'),n=entUi.placing?null:e.target.closest('[data-ent]');
 if(h&&selE){entUi.eact={kind:'handle',h:h.dataset.ehandle,pid:e.pointerId,before:JSON.stringify(g)};svg.setPointerCapture(e.pointerId);return}
 if(n){const id=n.dataset.ent,cur=entSel();entUi.placing=null;document.body.dataset.placing='';
 if(e.shiftKey){entSetSel(cur.includes(id)?cur.filter(x=>x!==id):[...cur,id]);render();return}
@@ -122,6 +137,7 @@ if(cur.length<2||!cur.includes(id))entSetSel([id]);
 const ids=entSel(),P0=world(e),before=JSON.stringify(g);
 if(ids.length>1){entUi.eact={kind:'gmove',ids,x0:P0.x,y0:P0.y,g0:JSON.parse(before),pid:e.pointerId,before};svg.setPointerCapture(e.pointerId);render();return}
 const en=entGet(selE);entUi.eact={kind:'move',id:selE,pid:e.pointerId,before,fixed:!!(en&&en.connectorId)};svg.setPointerCapture(e.pointerId);render();return}
+const cl=entUi.placing?null:e.target.closest('[data-ecl]');if(cl){entUi.hov=entUi.hov===cl.dataset.ecl?null:cl.dataset.ecl;render();return}
 const P=world(e);if(entUi.placing){entPlace(P,e);return}
 entUi.eact={kind:'box',x0:P.x,y0:P.y,x1:P.x,y1:P.y,add:e.shiftKey,base:e.shiftKey?entSel():[],pid:e.pointerId,before:JSON.stringify(g)};svg.setPointerCapture(e.pointerId)}
 function entMove(e){if(appMode!=='entities'||!entUi.eact||entUi.eact.pid!==e.pointerId)return;const P=world(e),st=e.altKey?0:entStep();
@@ -133,7 +149,8 @@ if(k==='facing')patch.facingDegrees=a5((ang+360)%360);else if(k==='range')patch.
 const r=updateEntity({graph:g,id:selE,patch});if(r.ok)g=r.graph}
 render()}
 function entEnd(e){if(appMode!=='entities'||!entUi.eact||entUi.eact.pid!==e.pointerId)return;const a=entUi.eact,b=a.before;entUi.eact=null;if(a.kind==='box'){const x=Math.min(a.x0,a.x1),y=Math.min(a.y0,a.y1),w=Math.abs(a.x1-a.x0),h=Math.abs(a.y1-a.y0);if(w<.1&&h<.1)entSetSel(a.add?a.base:[]);else entSetSel([...new Set([...a.base,...entitiesInBox(g,x,y,x+w,y+h)])]);render();return}rec(b);render()}
-svg.addEventListener('pointerdown',e=>{if(appMode==='entities')entDown(e)});svg.addEventListener('pointermove',entMove);svg.addEventListener('pointerup',entEnd);svg.addEventListener('pointercancel',entEnd);svg.addEventListener('pointermove',e=>{if(appMode==='entities')entUi.entPtr=world(e)});
+svg.addEventListener('pointerdown',e=>{if(appMode==='entities')entDown(e)});
+let entHT=0,entLT=0;svg.addEventListener('mouseover',e=>{if(appMode!=='entities')return;const t=e.target.closest&&e.target.closest('[data-ecl]');clearTimeout(entLT);clearTimeout(entHT);if(!t){entLT=setTimeout(()=>{if(entUi.hov){entUi.hov=null;render()}},250);return}const k=t.dataset.ecl;if(entUi.hov===k)return;entHT=setTimeout(()=>{entUi.hov=k;render()},400)});svg.addEventListener('pointermove',entMove);svg.addEventListener('pointerup',entEnd);svg.addEventListener('pointercancel',entEnd);svg.addEventListener('pointermove',e=>{if(appMode==='entities')entUi.entPtr=world(e)});
 document.addEventListener('keydown',e=>{if(appMode!=='entities'||/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName))return;const k=e.key.toLowerCase();if(e.ctrlKey||e.metaKey){if(k==='a'){e.preventDefault();entSelectAll()}else if(k==='c'){e.preventDefault();entCopy()}else if(k==='v'){e.preventDefault();entPaste()}return}
 if(e.key==='Escape'){entUi.placing=null;document.body.dataset.placing='';selE=null;selM=new Set();render();return}
 const ids=entSel();if(!ids.length)return;

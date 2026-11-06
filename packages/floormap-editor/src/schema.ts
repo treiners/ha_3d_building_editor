@@ -37,7 +37,7 @@ export interface Stair {
 }
 
 /** An outside area (deck, driveway, garden, pond, path): a labelled footprint that is not part of the room graph. */
-export interface Area { id: string; name: string; kind: string; shape: 'rect' | 'ellipse'; layout: Layout }
+export interface Area { id: string; name: string; kind: string; shape: 'rect' | 'ellipse'; layout: Layout; roofed?: boolean; species?: string; outline?: [number, number][]; /** Height above the floor baseline in metres (raised deck), default 0. */ elevation?: number }
 
 /** Where the numbers in `entityPlacements[].position` are measured from. 'room' (default) = metres from the host's top-left corner. */
 export interface EntitySettings { coordinates?: 'room' | 'plan'; gridStep?: number }
@@ -58,8 +58,8 @@ export interface EntityPlacement {
   facingDegrees?: number; fieldOfViewDegrees?: number; range?: number;
 }
 
-/** `appliance` = things that are devices (refrigerator, washing machine, ...), `furniture` = everything else. A reader may hide furniture. */
-export type ObjectCategory = 'appliance' | 'furniture';
+/** Free text, lower case, 1 to 32 characters. Built-in: `appliance` (devices: refrigerator, washing machine, ...) and `furniture`; add your own, e.g. `sanitary` (toilet, bathtub) or `outdoor`. A reader may hide whole categories (furniture adds clutter in Home Assistant). */
+export type ObjectCategory = string;
 
 /** What an object type is: default footprint (`width` across the front, `depth` front to back), `height`, optional `elevation` (wall mounted) and `clearance` (free space needed in front, metres). Custom types are listed in `objectTypes` with their `id`. */
 export interface ObjectTypeDef {

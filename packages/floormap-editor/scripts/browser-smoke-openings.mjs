@@ -22,7 +22,7 @@ click('[data-addop=door]'); assert.equal(doc.body.dataset.addop, 'door'); assert
 ptr('pointermove', canvas, 4, 2.6); assert.ok(doc.querySelector('.addop-ghost'), 'ghost bar');
 ptr('pointerdown', canvas, 4, 2.6);
 assert.equal(G().relationships.length, 2); assert.deepEqual(conns('a').map(c => [c.id, c.offset]), [['a-right-door', 1.5], ['a-right-door-2', 2.55]]); assert.deepEqual(conns('b').map(c => c.id), ['b-left-door', 'b-left-door-2']);
-assert.equal(w.eval('addOp'), null, 'one-shot'); assert.equal(w.eval('selPort'), 'a-right-door-2'); assert.equal(doc.body.dataset.ui, 'connectors'); assert.match($('status').textContent, /connecting to b/);
+assert.equal(w.eval('addOp'), null, 'one-shot'); assert.equal(w.eval('selPort'), 'a-right-door-2'); assert.equal(doc.body.dataset.ui, 'layout'); assert.match($('status').textContent, /connecting to b/);
 $('undo').click(); assert.equal(G().relationships.length, 1); assert.equal(conns('a').length, 1); $('redo').click(); assert.equal(G().relationships.length, 2);
 
 // 2. exterior window on a's left wall: unpaired (orange point), selected card shows it as not connected

@@ -2,8 +2,11 @@
  * Outside areas (deck, driveway, garden / plot, pond, path): flat labelled footprints in plan coordinates, kept in the optional graph key `areas`.
  * They are NOT part of the room graph (no connectors, no solvers, no mapper); entities can sit in them (`areaId`, see entities.ts).
  * Shapes: axis-aligned `rect` or `ellipse` inside `layout` { x, y, width, height } (metres, y down). Pure + deterministic; mutating functions return a NEW graph.
- * Embedded into the editor HTML with toString(): no imports, helpers inside the functions; sibling global `areaKinds` only.
+ * Embedded into the editor HTML with toString(): helpers inside the functions; sibling globals `areaKinds`, and for the room check `shapeOfRoom`, `outlineFromRect`, `outlineOverlapArea`, `outlinePoint` (rooms with a shape, e.g. an L, are
+ * measured on their real outline, so an area in a notch is no overlap).
  */
+import { outlineFromRect, outlineOverlapArea, outlinePoint } from './shape.js';
+import { shapeOfRoom } from './room-shape.js';
 export interface AreaResult { graph: any; ok: boolean; message: string; id: string }
 
 /** Kind catalogue: label, default shape and size [w, h] in metres, colours. `plot` kinds (garden) may surround rooms without a warning. */
@@ -13,6 +16,7 @@ export function areaKinds(): Record<string, any> {
     driveway: { label: 'Driveway', shape: 'rect', size: [6, 3], fill: '#d4d4d8', stroke: '#52525b' },
     garden: { label: 'Garden', shape: 'rect', size: [10, 8], fill: '#dcfce7', stroke: '#16a34a', plot: true },
     pond: { label: 'Pond', shape: 'ellipse', size: [2.5, 1.8], fill: '#bfdbfe', stroke: '#2563eb' },
+    tree: { label: 'Tree', shape: 'ellipse', size: [3, 3], fill: '#86efac', stroke: '#166534', canopy: true },
     path: { label: 'Path', shape: 'rect', size: [4, 1], fill: '#f1e4c9', stroke: '#b45309' },
     other: { label: 'Other', shape: 'rect', size: [3, 3], fill: '#e5e7eb', stroke: '#6b7280' },
   };
@@ -40,11 +44,15 @@ export function addArea(input: { graph: any; kind?: string; name?: string; id?: 
   return { graph: g, ok: true, message: 'Added ' + k.label.toLowerCase() + ' "' + name + '".', id };
 }
 
-/** Edits one area: name, kind, shape (rect | ellipse), x, y, width, height (min 0.5), roofed. Unknown values are ignored. */
+/** Edits one area: name, kind, shape (rect | ellipse), x, y, width, height (min 0.5), roofed, elevation (height from floor, 0..10 m, 0 removes it). Unknown values are ignored. */
 export function updateArea(input: { graph: any; id: string; patch: any }): AreaResult {
   const g: any = JSON.parse(JSON.stringify(input.graph)), a = (g.areas || []).find((o: any) => o.id === input.id), P = input.patch || {};
   if (!a) return { graph: input.graph, ok: false, message: 'No such area.', id: input.id };
   const rnd = (v: number) => Math.round(v * 1e4) / 1e4 + 0, num = (v: any) => (typeof v === 'number' && isFinite(v) ? v : NaN);
+  if (a.outline && (P.width !== undefined || P.height !== undefined)) return { graph: input.graph, ok: false, message: 'A shaped area is resized by dragging its walls.', id: input.id };
+  if (a.outline && P.shape === 'ellipse') return { graph: input.graph, ok: false, message: 'A shaped area cannot be an ellipse: make it a rectangle first.', id: input.id };
+  if (P.outline === null) delete a.outline;
+  if (typeof P.species === 'string') { const sp = P.species.trim().slice(0, 40); if (sp) a.species = sp; else delete a.species; }
   if (typeof P.name === 'string' && P.name.trim()) a.name = P.name.trim();
   if (typeof P.kind === 'string' && areaKinds()[P.kind]) a.kind = P.kind;
   if (P.shape === 'rect' || P.shape === 'ellipse') a.shape = P.shape;
@@ -53,6 +61,7 @@ export function updateArea(input: { graph: any; id: string; patch: any }): AreaR
   if (!isNaN(num(P.width))) a.layout.width = rnd(Math.max(0.5, P.width));
   if (!isNaN(num(P.height))) a.layout.height = rnd(Math.max(0.5, P.height));
   if (typeof P.roofed === 'boolean') { if (P.roofed) a.roofed = true; else delete a.roofed; }
+  if (!isNaN(num(P.elevation))) { const e = Math.round(Math.max(0, Math.min(10, P.elevation)) * 100) / 100 + 0; if (e) a.elevation = e; else delete a.elevation; }
   return { graph: g, ok: true, message: 'Updated "' + a.name + '".', id: a.id };
 }
 
@@ -76,6 +85,7 @@ export function areaAt(graph: any, x: number, y: number): any {
     const L = a.layout;
     if (!L || x < L.x - 1e-6 || x > L.x + L.width + 1e-6 || y < L.y - 1e-6 || y > L.y + L.height + 1e-6) continue;
     if (a.shape === 'ellipse') { const u = (x - (L.x + L.width / 2)) / (L.width / 2), v = (y - (L.y + L.height / 2)) / (L.height / 2); if (u * u + v * v > 1 + 1e-9) continue; }
+    if (a.outline && a.outline.length > 4 && !outlinePoint(a.outline, x - L.x, y - L.y)) continue;
     const s = L.width * L.height;
     if (s < ba - 1e-9 || (Math.abs(s - ba) <= 1e-9 && a.id < best.id)) { best = a; ba = s; }
   }
@@ -93,6 +103,16 @@ export function validateAreas(graph: any): { id: string; code: string; message: 
     if (!k) { add(a.id, 'unknown-kind', 'Unknown kind "' + a.kind + '".'); continue; }
     if (!L || !(L.width >= 0.5 - 1e-9) || !(L.height >= 0.5 - 1e-9)) { add(a.id, 'too-small', 'Smaller than 0.5 m.'); continue; }
     if (k.plot) continue;
+    if (k.canopy) {
+      // a tree: the canopy (the ellipse) may overhang rooms, only the trunk (the centre) must not stand inside one
+      const cx = L.x + L.width / 2, cy = L.y + L.height / 2;
+      for (const r of graph.rooms || []) {
+        const R = r.layout;
+        if (!R || String(r.name).toLowerCase() === 'outside' || (r.floor && ground && r.floor !== ground)) continue;
+        if (cx > R.x + 1e-6 && cx < R.x + R.width - 1e-6 && cy > R.y + 1e-6 && cy < R.y + R.height - 1e-6) { add(a.id, 'overlaps-room', 'Trunk (centre) is inside room "' + r.name + '".'); break; }
+      }
+      continue;
+    }
     for (const r of graph.rooms || []) {
       const R = r.layout;
       if (!R || String(r.name).toLowerCase() === 'outside') continue;
@@ -100,9 +120,12 @@ export function validateAreas(graph: any): { id: string; code: string; message: 
       const x0 = Math.max(L.x, R.x), x1 = Math.min(L.x + L.width, R.x + R.width), y0 = Math.max(L.y, R.y), y1 = Math.min(L.y + L.height, R.y + R.height);
       if (x1 - x0 <= 1e-6 || y1 - y0 <= 1e-6) continue;
       let hit = a.shape !== 'ellipse';
-      for (let i = 0; i < 10 && !hit; i++) for (let j = 0; j < 10 && !hit; j++) {
+      const wo = r.outline && r.outline.length > 4 ? shapeOfRoom(r).map((q: [number, number]): [number, number] => [q[0] + R.x, q[1] + R.y]) : null;
+      const ao = a.outline && a.outline.length > 4 ? a.outline.map((q: [number, number]): [number, number] => [q[0] + L.x, q[1] + L.y]) : null;
+      if (hit && (wo || ao)) hit = outlineOverlapArea(wo || outlineFromRect(R), ao || outlineFromRect(L)) > 1e-6;
+      for (let i = 0; i < 10 && !hit && a.shape === 'ellipse'; i++) for (let j = 0; j < 10 && !hit; j++) {
         const px = x0 + ((i + 0.5) * (x1 - x0)) / 10, py = y0 + ((j + 0.5) * (y1 - y0)) / 10, u = (px - (L.x + L.width / 2)) / (L.width / 2), v = (py - (L.y + L.height / 2)) / (L.height / 2);
-        if (u * u + v * v <= 1) hit = true;
+        if (u * u + v * v <= 1 && (!wo || outlinePoint(wo, px, py))) hit = true;
       }
       if (hit) { add(a.id, 'overlaps-room', 'Overlaps room "' + r.name + '".'); break; }
     }

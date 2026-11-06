@@ -43,6 +43,20 @@ test('open passages are free: a refrigerator in front of an open passage on the 
   assert.deepEqual(validateObjects(at('door')).map((i) => i.code), ['blocks-door']);
 });
 
+test('blocks-clearance: the refrigerator at (2, 1.5) needs x 1.7..2.3, y 0.475..1.175 free (1.5 - 0.325 - 0.7 = 0.475); a chair at (2, 0.8) stands in it, one at (3, 0.8) or behind the fridge at (2, 2.5) does not', () => {
+  const g = (pos: [number, number]): ObjectGraph => { const r = room(); r.objects!.push({ id: 'p', type: 'chair', roomId: 'r', position: pos, facingDegrees: 0 }); return r; };
+  assert.deepEqual(validateObjects(g([2, 0.8])).map((i) => [i.id, i.code]), [['o', 'blocks-clearance']]);
+  assert.match(validateObjects(g([2, 0.8]))[0]!.message, /Chair/);
+  assert.deepEqual(validateObjects(g([3, 0.8])), []);
+  assert.deepEqual(validateObjects(g([2, 2.5])), []);
+});
+
+test('blocks-clearance only counts objects of the same room: an identical chair position in another (overlapping) room s does not block the fridge of room r', () => {
+  const r = room(); r.rooms!.push({ id: 's', name: 'S', layout: { x: 0, y: 0, width: 4, height: 3 }, connectors: [] });
+  r.objects!.push({ id: 'p', type: 'chair', roomId: 's', position: [2, 0.8], facingDegrees: 0 });
+  assert.deepEqual(validateObjects(r), []);
+});
+
 test('the new functions are embedded in the page source', () => {
   const src = embeddedSource();
   assert.ok(src.includes('function objectClearance(') && src.includes('function objectSnap('));

@@ -7,8 +7,10 @@
  *   (the side `direction` points to). Example: direction "right" = bar on the left in the room below, bar on the right in the room above.
  * - `fromRoom` / `toRoom` are DERIVED on save (`stairsFill`): the room that contains the middle of the bar on the lower / upper floor (null = none).
  * Stairs are global (never stashed per floor). All functions are pure and embedded into the editor with toString();
- * siblings: stairBar -> stairRect, stairsVisible -> stairRect + stairBar, stairsHost -> stairBar, stairsFill -> stairsHost.
+ * siblings: stairBar -> stairRect, stairsVisible -> stairRect + stairBar, stairsHost -> stairBar (+ outlineIssues, outlinePoint: a room with its own shape does not host a bar that lies in a notch), stairsFill -> stairsHost.
  */
+import { outlineIssues, outlinePoint } from './shape.js';
+
 export function stairRect(s: any): { x: number; y: number; w: number; h: number } {
   const horiz = s.direction === 'left' || s.direction === 'right';
   return { x: s.x, y: s.y, w: horiz ? s.length : s.width, h: horiz ? s.width : s.length };
@@ -68,7 +70,7 @@ export function stairsHost(graph: any, s: any, role: 'lower' | 'upper'): string 
   for (const r of graph.rooms || []) {
     const L = r.layout;
     if (!L || String(r.name).toLowerCase() === 'outside' || (r.floor || first) !== floor) continue;
-    if (cx >= L.x - 1e-6 && cx <= L.x + L.width + 1e-6 && cy >= L.y - 1e-6 && cy <= L.y + L.height + 1e-6) return r.id;
+    if (cx >= L.x - 1e-6 && cx <= L.x + L.width + 1e-6 && cy >= L.y - 1e-6 && cy <= L.y + L.height + 1e-6 && !(r.outline && outlineIssues(r.outline).length === 0 && !outlinePoint(r.outline, cx - L.x, cy - L.y))) return r.id;
   }
   return null;
 }

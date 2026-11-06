@@ -72,14 +72,14 @@ w.eval("g.rooms[0].connectors.push({id:'aw',roomId:'a',side:'top',type:'window',
 const sill = doc.querySelector('[data-wsill="aw"]'); sill.value = '1'; ev('change', sill);
 const head = doc.querySelector('[data-whead="aw"]'); head.value = '3.5'; ev('change', head);
 assert.equal(w.eval("JSON.stringify(g.rooms[0].connectors[1].window)"), JSON.stringify({ type: 'fixed', sillHeight: 1, headHeight: 2.8, frameDepth: 0.08 }));
-// Mode + inspector layout: tabs, segmented tool / move mode, auto-switch to Connectors on connector selection, classic toggle
+// Mode + inspector layout: tabs (Plan, Building), segmented tool / move mode, no auto-switch on connector selection, classic toggle
 doc.querySelector('[data-ui-tab="building"]').click(); assert.equal(doc.body.dataset.ui, 'building');
 doc.querySelector('[data-ui-tab="layout"]').click(); w.eval("selPort=null;sel.clear();render()");
 doc.querySelector('[data-seg="tool"][data-v="walls"]').click(); assert.equal($('tool').value, 'walls'); assert.equal(w.eval('tool'), 'walls'); assert.ok(doc.querySelector('[data-seg="tool"][data-v="walls"]').classList.contains('active'));
 doc.querySelector('[data-seg="move-mode"][data-v="slide"]').click(); assert.equal(w.eval('moveMode'), 'slide');
 doc.querySelector('[data-seg="tool"][data-v="rooms"]').click(); doc.querySelector('[data-seg="move-mode"][data-v="free"]').click();
 doc.querySelector('[data-port="ar"]').dispatchEvent(new w.Event('pointerdown', { bubbles: true })); $('canvas').dispatchEvent(new w.Event('pointerup', { bubbles: true }));
-assert.equal(doc.body.dataset.ui, 'connectors');
+assert.equal(doc.body.dataset.ui, 'layout', 'selecting a connector does not switch the tab any more');
 doc.querySelector('[data-ui-tab="layout"]').click(); w.eval('render()'); assert.equal(doc.body.dataset.ui, 'layout');
 assert.match($('conn-summary').textContent, /New rooms connect with: door/);
 $('classic').checked = true; ev('change', $('classic')); assert.ok(doc.body.classList.contains('classic'));

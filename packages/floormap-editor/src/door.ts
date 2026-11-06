@@ -1,4 +1,4 @@
-export interface DoorSpec { hinge: 'left' | 'right'; swing: 'inward' | 'outward'; openAngle: number }
+export interface DoorSpec { hinge: 'left' | 'right'; swing: 'inward' | 'outward'; openAngle: number; tilt?: boolean; slide?: 'start' | 'end' }
 export interface DoorGeo { H: { x: number; y: number }; J: { x: number; y: number }; E: { x: number; y: number }; path: string; leaf: string }
 
 /**
@@ -32,7 +32,13 @@ export function doorAngle(side: string, P: { x: number; y: number }, w: number, 
   return Math.max(10, Math.min(180, Math.round(deg / 5) * 5));
 }
 
-/** The same physical door seen from the room on the other side of the wall. */
+/**
+ * The same physical door seen from the room on the other side of the wall. `tilt` (tilt-and-turn) is kept; `slide` (sliding / pocket door: `end` = the leaf
+ * moves towards the larger x / y of the wall, absent = `start`) is kept as is, because both walls of a pair run along the same axis.
+ */
 export function mirrorDoor(spec: DoorSpec): DoorSpec {
-  return { hinge: spec.hinge === 'left' ? 'right' : 'left', swing: spec.swing === 'inward' ? 'outward' : 'inward', openAngle: spec.openAngle };
+  const o: DoorSpec = { hinge: spec.hinge === 'left' ? 'right' : 'left', swing: spec.swing === 'inward' ? 'outward' : 'inward', openAngle: spec.openAngle };
+  if (spec.tilt) o.tilt = true;
+  if (spec.slide === 'end') o.slide = 'end';
+  return o;
 }

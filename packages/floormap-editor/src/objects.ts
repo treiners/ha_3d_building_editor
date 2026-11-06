@@ -7,13 +7,15 @@
  * (0 = up / -y, 90 = right), exactly like `facingDegrees` of entities. At facing 0 the footprint is `width` along x and `depth` along y.
  *
  * Embedded into the editor page with toString(): no imports of values, helpers live inside the functions; sibling globals (all embedded
- * together, see embed.ts): `objectCatalog`, `objectDefs`, `objectFootprint`, `objectHost`, `objectHostAt`, `objectClamp`.
+ * together, see embed.ts): `objectCatalog`, `objectDefs`, `objectFootprint`, `objectClearance`, `objectHost`, `objectHostAt`, `objectClamp`, and the shape functions
+ * `outlineGrid`, `outlineHasRect`, `outlineIssues`, `outlinePoint`, `outlineWalls` (rooms with an `outline` are hosts with that shape, v2.18 phase 3).
  */
 import type { Area, ObjectPlacement, ObjectTypeDef } from './schema.js';
 import type { Layout } from './core.js';
+import { outlineGrid, outlineHasRect, outlineIssues, outlinePoint, outlineWalls } from './shape.js';
 
-interface ObjConnector { id: string; side: string; offset?: number; width?: number; type?: string }
-interface ObjRoom { id: string; name?: string; floor?: string; layout?: Layout; connectors?: ObjConnector[] }
+interface ObjConnector { id: string; side: string; offset?: number; width?: number; type?: string; doorType?: string }
+interface ObjRoom { id: string; name?: string; floor?: string; layout?: Layout; connectors?: ObjConnector[]; outline?: [number, number][] }
 /** The parts of a graph the object functions look at (a FloorplanGraph / WorkingGraph is assignable to it). */
 export interface ObjectGraph {
   rooms?: ObjRoom[]; areas?: Area[]; objects?: ObjectPlacement[]; objectTypes?: ObjectTypeDef[];
@@ -23,8 +25,8 @@ export interface ObjectGraph {
 }
 export interface ObjectResult<G> { graph: G; ok: boolean; message: string; id: string }
 export interface ObjectIssue { id: string; code: string; message: string }
-/** A room or an area as the place an object stands in (plan coordinates of its top-left corner and size). */
-export interface ObjectHostRect { kind: 'room' | 'area'; id: string; x: number; y: number; width: number; height: number }
+/** A room or an area as the place an object stands in (plan coordinates of its top-left corner and size). `outline` (rooms with their own shape, v2.18): the corners relative to that corner, see shape.ts. */
+export interface ObjectHostRect { kind: 'room' | 'area'; id: string; x: number; y: number; width: number; height: number; outline?: [number, number][] }
 type Pt = [number, number];
 
 /** Built-in object types, in metres. `clearance` = free space needed in front (door swing). */
@@ -39,6 +41,7 @@ export function objectCatalog(): Record<string, ObjectTypeDef> {
     dryer: { label: 'Dryer', category: 'appliance', width: 0.6, depth: 0.6, height: 0.85, clearance: 0.6 },
     'water-heater': { label: 'Water heater', category: 'appliance', width: 0.55, depth: 0.55, height: 1.5 },
     tv: { label: 'TV', category: 'appliance', width: 1.2, depth: 0.08, height: 0.7, elevation: 0.9 },
+    fan: { label: 'Fan', category: 'appliance', width: 1.2, depth: 1.2, height: 0.3, elevation: 2.1 },
     sofa: { label: 'Sofa', category: 'furniture', width: 2, depth: 0.9, height: 0.85 },
     armchair: { label: 'Armchair', category: 'furniture', width: 0.85, depth: 0.85, height: 0.9 },
     'bed-single': { label: 'Single bed', category: 'furniture', width: 0.9, depth: 2, height: 0.5 },
@@ -107,26 +110,45 @@ export function objectSnap(input: { graph: ObjectGraph; id: string; wx: number; 
   };
   const sx = axis(input.wx, Math.min(...xs), Math.max(...xs), host.x, host.x + host.width);
   const sy = axis(input.wy, Math.min(...ys), Math.max(...ys), host.y, host.y + host.height);
+  if (host.outline) {
+    // a room with its own shape: snap to its wall segments (left / right walls for the x edges, top / bottom for the y edges) that face the footprint
+    const lx = Math.min(...xs), hx = Math.max(...xs), ly = Math.min(...ys), hy = Math.max(...ys), cx = input.wx - host.x, cy = input.wy - host.y;
+    let bx: number | null = null, by: number | null = null, dx = Infinity, dy = Infinity;
+    for (const w of outlineWalls(host.outline)) {
+      if (w.side === 'left' || w.side === 'right') {
+        if (Math.min(cy + hy, w.to) - Math.max(cy + ly, w.from) <= 1e-6) continue;
+        const t = w.side === 'left' ? w.at - lx : w.at - hx, d = Math.abs(t - cx);
+        if (d <= tol && d < dx - 1e-9) { dx = d; bx = rnd(t); }
+      } else {
+        if (Math.min(cx + hx, w.to) - Math.max(cx + lx, w.from) <= 1e-6) continue;
+        const t = w.side === 'top' ? w.at - ly : w.at - hy, d = Math.abs(t - cy);
+        if (d <= tol && d < dy - 1e-9) { dy = d; by = rnd(t); }
+      }
+    }
+    return { wx: bx !== null ? rnd(host.x + bx) : input.wx, wy: by !== null ? rnd(host.y + by) : input.wy, snapped: bx !== null || by !== null };
+  }
   return { wx: sx ?? input.wx, wy: sy ?? input.wy, snapped: sx !== null || sy !== null };
 }
 
 /** The room or area an object stands in (its plan rectangle), or null when the host does not exist or has no layout. */
 export function objectHost(graph: ObjectGraph, o: { roomId?: string; areaId?: string }): ObjectHostRect | null {
   const r = o.roomId ? (graph.rooms || []).find((x) => x.id === o.roomId) : undefined;
-  if (r && r.layout) return { kind: 'room', id: r.id, x: r.layout.x, y: r.layout.y, width: r.layout.width, height: r.layout.height };
+  if (r && r.layout) return { kind: 'room', id: r.id, x: r.layout.x, y: r.layout.y, width: r.layout.width, height: r.layout.height, ...(r.outline && outlineIssues(r.outline).length === 0 ? { outline: r.outline } : {}) };
   const a = o.areaId ? (graph.areas || []).find((x) => x.id === o.areaId) : undefined;
   if (a && a.layout) return { kind: 'area', id: a.id, x: a.layout.x, y: a.layout.y, width: a.layout.width, height: a.layout.height };
   return null;
 }
 
-/** The host under a plan point: rooms first (not `Outside`), then areas; the smallest one wins, then the id. Null when there is none. */
+/** The host under a plan point: rooms first (not `Outside`; a room with its own shape only counts inside the shape, not in its notches), then areas; the smallest one wins, then the id. Null when there is none. */
 export function objectHostAt(graph: ObjectGraph, wx: number, wy: number): ObjectHostRect | null {
   const inside = (L: Layout) => wx >= L.x - 1e-9 && wx <= L.x + L.width + 1e-9 && wy >= L.y - 1e-9 && wy <= L.y + L.height + 1e-9;
   const pick = (list: ObjectHostRect[]) => list.sort((p, q) => p.width * p.height - q.width * q.height || (p.id < q.id ? -1 : p.id > q.id ? 1 : 0))[0] ?? null;
   const rooms: ObjectHostRect[] = [];
   for (const r of graph.rooms || []) {
     if (!r.layout || String(r.name).toLowerCase() === 'outside' || !inside(r.layout)) continue;
-    rooms.push({ kind: 'room', id: r.id, x: r.layout.x, y: r.layout.y, width: r.layout.width, height: r.layout.height });
+    const shape = r.outline && outlineIssues(r.outline).length === 0 ? r.outline : undefined;
+    if (shape && !outlinePoint(shape, wx - r.layout.x, wy - r.layout.y)) continue;
+    rooms.push({ kind: 'room', id: r.id, x: r.layout.x, y: r.layout.y, width: r.layout.width, height: r.layout.height, ...(shape ? { outline: shape } : {}) });
   }
   const room = pick(rooms);
   if (room) return room;
@@ -135,17 +157,38 @@ export function objectHostAt(graph: ObjectGraph, wx: number, wy: number): Object
   return pick(areas);
 }
 
-/** Moves the centre so that the whole footprint lies inside the host (an object larger than the host is centred). Returns the new relative position. */
+/**
+ * Moves the centre so that the whole footprint lies inside the host (an object larger than the host is centred). Returns the new relative position.
+ * A host with its own shape (`outline`): the nearest position (to the wanted one) where the footprint's bounds lie inside the shape, found among the
+ * positions where an edge of the footprint touches a corner coordinate of the shape (exact for walls parallel to the axes); unchanged when it fits.
+ */
 export function objectClamp(
   o: { type?: string; position: Pt; width?: number; depth?: number; facingDegrees?: number },
-  host: { width: number; height: number },
+  host: { width: number; height: number; outline?: [number, number][] },
   defs?: Record<string, ObjectTypeDef>,
 ): Pt {
   const pts = objectFootprint(o, defs), rnd = (v: number) => Math.round(v * 1e6) / 1e6 + 0;
   const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
   const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
   const fit = (lo: number, hi: number, size: number) => (hi - lo > size + 1e-9 ? (size - (hi - lo)) / 2 - lo : lo < 0 ? -lo : hi > size ? size - hi : 0);
-  return [rnd(o.position[0] + fit(x0, x1, host.width)), rnd(o.position[1] + fit(y0, y1, host.height))];
+  const plain: Pt = [rnd(o.position[0] + fit(x0, x1, host.width)), rnd(o.position[1] + fit(y0, y1, host.height))];
+  const shape = host.outline;
+  if (!shape) return plain;
+  const lx = x0 - o.position[0], hx = x1 - o.position[0], ly = y0 - o.position[1], hy = y1 - o.position[1];
+  const ok = (c: Pt) => outlineHasRect(shape, { x: c[0] + lx, y: c[1] + ly, width: hx - lx, height: hy - ly });
+  if (ok([rnd(o.position[0]), rnd(o.position[1])])) return [rnd(o.position[0]), rnd(o.position[1])];
+  const g = outlineGrid([shape]), cx = [o.position[0]], cy = [o.position[1]];
+  for (const x of g.xs) cx.push(x - lx, x - hx);
+  for (const y of g.ys) cy.push(y - ly, y - hy);
+  let best: Pt | null = null, bd = Infinity;
+  for (const x of cx) for (const y of cy) {
+    const d = Math.hypot(x - o.position[0], y - o.position[1]);
+    if (d > bd + 1e-9) continue;
+    const c: Pt = [rnd(x), rnd(y)];
+    if (!ok(c)) continue;
+    if (d < bd - 1e-9 || (best !== null && (c[1] < best[1] || (c[1] === best[1] && c[0] < best[0])))) { bd = d; best = c; }
+  }
+  return best ?? plain;
 }
 
 /** Adds an object of `type` with its centre at the plan point (wx, wy). The host is the room or area under the point; the footprint is kept inside it. */
@@ -189,7 +232,7 @@ export function moveObject<G extends ObjectGraph>(input: { graph: G; id: string;
 /** Changes properties of an object. Numbers are checked (size 0.05 to 10 m, height 0.02 to 4 m, elevation 0 to 3 m), the type must exist, the facing is normalised to 0..360, the footprint is kept inside the host. */
 export function updateObject<G extends ObjectGraph>(input: {
   graph: G; id: string;
-  patch: { name?: string; type?: string; width?: number; depth?: number; height?: number; elevation?: number; facingDegrees?: number; category?: 'appliance' | 'furniture'; position?: Pt };
+  patch: { name?: string; type?: string; width?: number; depth?: number; height?: number; elevation?: number; facingDegrees?: number; category?: string; position?: Pt };
 }): ObjectResult<G> {
   const g0 = input.graph, p = input.patch, bad = (m: string): ObjectResult<G> => ({ graph: g0, ok: false, message: m, id: input.id });
   if (!(g0.objects || []).some((x) => x.id === input.id)) return bad('No such object.');
@@ -198,12 +241,13 @@ export function updateObject<G extends ObjectGraph>(input: {
   for (const [k, lo, hi] of [['width', 0.05, 10], ['depth', 0.05, 10], ['height', 0.02, 4], ['elevation', 0, 3]] as [keyof typeof p, number, number][]) if (p[k] !== undefined && !num(p[k], lo, hi)) return bad(k + ' must be between ' + lo + ' and ' + hi + ' m.');
   if (p.facingDegrees !== undefined && !num(p.facingDegrees, -3600, 3600)) return bad('facingDegrees must be a number.');
   if (p.position !== undefined && !(num(p.position[0], -1000, 1000) && num(p.position[1], -1000, 1000))) return bad('position must be two numbers.');
-  if (p.category !== undefined && p.category !== 'appliance' && p.category !== 'furniture') return bad('category must be appliance or furniture.');
+  const cat = p.category === undefined ? undefined : String(p.category).trim().toLowerCase();
+  if (cat !== undefined && (!cat || cat.length > 32)) return bad('The category must be 1 to 32 characters.');
   const g = JSON.parse(JSON.stringify(g0)) as ObjectGraph, o = g.objects!.find((x) => x.id === input.id)!;
   const rnd = (v: number) => Math.round(v * 1e6) / 1e6 + 0;
   if (p.name !== undefined) { if (p.name) o.name = p.name; else delete o.name; }
   if (p.type !== undefined) o.type = p.type;
-  if (p.category !== undefined) o.category = p.category;
+  if (cat !== undefined) o.category = cat;
   for (const k of ['width', 'depth', 'height', 'elevation'] as const) if (p[k] !== undefined) o[k] = rnd(p[k]!);
   if (p.facingDegrees !== undefined) o.facingDegrees = rnd(((p.facingDegrees % 360) + 360) % 360);
   if (p.position !== undefined) o.position = [rnd(p.position[0]), rnd(p.position[1])];
@@ -231,19 +275,20 @@ export function addObjectType<G extends ObjectGraph>(input: { graph: G; label?: 
 /** Edits the defaults of a type. A built-in type gets an override entry in `objectTypes` (same id) that replaces it; objects without their own size follow. Numbers are checked (size 0.05 to 10 m, height 0.02 to 4 m, elevation and clearance 0 to 3 m); clearance 0 removes it. */
 export function updateObjectType<G extends ObjectGraph>(input: {
   graph: G; id: string;
-  patch: { label?: string; category?: 'appliance' | 'furniture'; width?: number; depth?: number; height?: number; elevation?: number; clearance?: number };
+  patch: { label?: string; category?: string; width?: number; depth?: number; height?: number; elevation?: number; clearance?: number };
 }): ObjectResult<G> {
   const g0 = input.graph, p = input.patch, cur = objectDefs(g0)[input.id], bad = (m: string): ObjectResult<G> => ({ graph: g0, ok: false, message: m, id: input.id });
   if (!cur) return bad('No such type.');
   const num = (v: unknown, lo: number, hi: number) => typeof v === 'number' && isFinite(v) && v >= lo - 1e-9 && v <= hi + 1e-9;
   for (const [k, lo, hi] of [['width', 0.05, 10], ['depth', 0.05, 10], ['height', 0.02, 4], ['elevation', 0, 3], ['clearance', 0, 3]] as [keyof typeof p, number, number][]) if (p[k] !== undefined && !num(p[k], lo, hi)) return bad(k + ' must be between ' + lo + ' and ' + hi + ' m.');
   if (p.label !== undefined && !String(p.label).trim()) return bad('The name must not be empty.');
-  if (p.category !== undefined && p.category !== 'appliance' && p.category !== 'furniture') return bad('category must be appliance or furniture.');
+  const cat = p.category === undefined ? undefined : String(p.category).trim().toLowerCase();
+  if (cat !== undefined && (!cat || cat.length > 32)) return bad('The category must be 1 to 32 characters.');
   const g = JSON.parse(JSON.stringify(g0)) as ObjectGraph, list = g.objectTypes || [], rnd = (v: number) => Math.round(v * 1e6) / 1e6 + 0;
   let t = list.find((x) => x.id === input.id);
   if (!t) { t = { ...cur, id: input.id }; list.push(t); }
   if (p.label !== undefined) t.label = String(p.label).trim();
-  if (p.category !== undefined) t.category = p.category;
+  if (cat !== undefined) t.category = cat;
   for (const k of ['width', 'depth', 'height', 'elevation'] as const) if (p[k] !== undefined) t[k] = rnd(p[k]!);
   if (p.clearance !== undefined) { if (p.clearance > 0) t.clearance = rnd(p.clearance); else delete t.clearance; }
   g.objectTypes = list;
@@ -282,7 +327,8 @@ export function removeObject<G extends ObjectGraph>(input: { graph: G; id: strin
  * Problems of the objects of a graph: unknown-type, no-host (the room or area is missing), outside (the footprint leaves its host),
  * overlap (with another object of the same height range), blocks-door (the footprint is in front of a door or open passage), too-high
  * (higher than the wall height). One issue per object and code; overlap is reported on the object that comes later by id.
- * Only doors count for blocks-door; open passages are free (v2.17 phase 3).
+ * Only doors count for blocks-door; open passages are free (v2.17 phase 3). A sliding or pocket door has no swing, so only the 0.1 m in front of its wall is kept free (v3.2). blocks-clearance: another object of the same host stands in the free
+ * zone in front of the object (`clearance` of its type, see `objectClearance`); one issue per object, naming the first blocker by id.
  */
 export function validateObjects(graph: ObjectGraph): ObjectIssue[] {
   const out: ObjectIssue[] = [], defs = objectDefs(graph), list = [...(graph.objects || [])].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
@@ -309,13 +355,16 @@ export function validateObjects(graph: ObjectGraph): ObjectIssue[] {
     if (!d) { add(o.id, 'unknown-type', 'Unknown object type "' + o.type + '".'); continue; }
     if (!host) { add(o.id, 'no-host', 'Its room or area does not exist.'); continue; }
     const xs = w.poly.map((p) => p[0]), ys = w.poly.map((p) => p[1]);
-    if (Math.min(...xs) < host.x - EPS || Math.max(...xs) > host.x + host.width + EPS || Math.min(...ys) < host.y - EPS || Math.max(...ys) > host.y + host.height + EPS) add(o.id, 'outside', 'Reaches outside its ' + host.kind + '.');
+    const outside = host.outline
+      ? !outlineHasRect(host.outline, { x: Math.min(...xs) - host.x, y: Math.min(...ys) - host.y, width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) })
+      : Math.min(...xs) < host.x - EPS || Math.max(...xs) > host.x + host.width + EPS || Math.min(...ys) < host.y - EPS || Math.max(...ys) > host.y + host.height + EPS;
+    if (outside) add(o.id, 'outside', host.outline ? 'Reaches outside the shape of its room.' : 'Reaches outside its ' + host.kind + '.');
     if (w.z1 > wallH + EPS) add(o.id, 'too-high', 'Higher than the walls (' + Math.round(w.z1 * 100) / 100 + ' m).');
     const room = host.kind === 'room' ? (graph.rooms || []).find((r) => r.id === host.id) : undefined;
     for (const c of room?.connectors || []) {
       if (c.type !== 'door') continue; // open passages are free: furniture may stand in them
       if (w.z0 >= 2 - EPS) continue;
-      const cw = c.width && c.width > 0 ? c.width : 0.9, dep = Math.min(cw, 0.9), off = c.offset ?? 0;
+      const cw = c.width && c.width > 0 ? c.width : 0.9, dep = c.doorType === 'sliding' || c.doorType === 'pocket' ? 0.1 : Math.min(cw, 0.9), off = c.offset ?? 0;
       const zone: Pt[] = c.side === 'top' ? [[host.x + off - cw / 2, host.y], [host.x + off + cw / 2, host.y], [host.x + off + cw / 2, host.y + dep], [host.x + off - cw / 2, host.y + dep]]
         : c.side === 'bottom' ? [[host.x + off - cw / 2, host.y + host.height - dep], [host.x + off + cw / 2, host.y + host.height - dep], [host.x + off + cw / 2, host.y + host.height], [host.x + off - cw / 2, host.y + host.height]]
         : c.side === 'left' ? [[host.x, host.y + off - cw / 2], [host.x + dep, host.y + off - cw / 2], [host.x + dep, host.y + off + cw / 2], [host.x, host.y + off + cw / 2]]
@@ -328,6 +377,17 @@ export function validateObjects(graph: ObjectGraph): ObjectIssue[] {
     if (!a.host || !b.host || !a.d || !b.d) continue;
     if (Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0) <= EPS) continue;
     if (overlap(a.poly, b.poly)) add(b.o.id, 'overlap', 'Overlaps ' + label(a.o) + '.');
+  }
+  for (const a of world) {
+    if (!a.host || !a.d) continue;
+    const rel = objectClearance(a.o, defs);
+    if (!rel.length) continue;
+    const zone = rel.map((p): Pt => [p[0] + a.host!.x, p[1] + a.host!.y]);
+    for (const b of world) {
+      if (b === a || !b.host || !b.d || b.host.kind !== a.host.kind || b.host.id !== a.host.id) continue;
+      if (Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0) <= EPS) continue;
+      if (overlap(zone, b.poly)) { add(a.o.id, 'blocks-clearance', 'The free space in front is blocked by ' + label(b.o) + '.'); break; }
+    }
   }
   return out;
 }

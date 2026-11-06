@@ -19,14 +19,25 @@ import { planWall, planCorner, planAlign, planClose, planFit } from './walls.js'
 import { doorGeometry, doorAngle, mirrorDoor } from './door.js';
 import { fillDefaults } from './defaults.js';
 import { connectRooms, addRoom, removeRoom, removeConnector, addOpening } from './edit.js';
+import { renameRoom } from './rename.js';
 import { areaKinds, addArea, updateArea, removeArea, areaAt, validateAreas, fillAreaDefaults } from './areas.js';
 import {
   entityCatalog, entityWorld, entityHost, entityHostAt, coverageSector, nearestAnchor, addEntity, moveEntity,
   updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, syncEntitySizes,
-  coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities, entityObjectFrame, entitySuggestions,
+  coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities, entityObjectFrame, entitySuggestions, entityClamp,
 } from './entities.js';
 import { shiftOrigin } from './origin.js';
 import { objectCatalog, objectDefs, objectFootprint, objectHost, objectHostAt, objectClamp, addObject, moveObject, updateObject, removeObject, validateObjects, fillObjectDefaults, objectClearance, objectSnap, addObjectType, updateObjectType, removeObjectType } from './objects.js';
+import {
+  outlineFromRect, outlineBounds, outlineArea, outlineNormalize, outlineIssues, outlinePoint, outlineGrid, outlineHasRect, outlineOverlapArea, outlineCombine, outlineWalls, outlineWallAt, outlineLabelRect, outlineNearest, outlineMoveWall, outlineBump, outlineThin,
+} from './shape.js';
+import { shapeOfRoom, shapeWallPartner, shapeWallPartners, reshapeRoom, reshapeWithPartner, moveRoomWall, pullRoomWall, mergeRooms } from './room-shape.js';
+import { areaOutlineOf, reshapeArea, moveAreaWall, pullAreaWall, mergeAreas } from './area-shape.js';
+import { roomAreas, wallLabels } from './dimensions.js';
+import { roomElevation, wallHeightOf, setRoomHeights, heightIssues } from './heights.js';
+import { viewGesture } from './viewport.js';
+import { linkConnectors, addPartner } from './link.js';
+import { wallList, setWallHeights, sharedWallIssues } from './wallheights.js';
 import { floorsSplit, floorsMerge, floorsSwitch, floorsAdd, floorsRemove, floorsRename, floorsGhost, floorsFill } from './floors.js';
 import { stairRect, stairBar, stairsVisible, stairsAdd, stairsUpdate, stairsRemove, stairsHost, stairsFill, stairResize } from './stairs.js';
 import { savedGraph } from './save.js';
@@ -44,15 +55,31 @@ export const embeddedFunctions: readonly EmbeddedFunction[] = [
   planMove, planWall, planCorner, planAlign, planClose, planFit,
   // doors, defaults and graph edits
   doorGeometry, doorAngle, mirrorDoor, fillDefaults,
-  connectRooms, addRoom, removeRoom, removeConnector, addOpening,
+  connectRooms, addRoom, removeRoom, removeConnector, addOpening, renameRoom,
   // areas
   areaKinds, addArea, updateArea, removeArea, areaAt, validateAreas, fillAreaDefaults,
   // entities
   entityCatalog, entityWorld, entityHost, entityHostAt, coverageSector, nearestAnchor, addEntity, moveEntity,
   updateEntity, removeEntity, validateEntities, convertEntityCoordinates, fillEntityDefaults, syncEntitySizes,
-  coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities, entityObjectFrame, entitySuggestions,
+  coverageHints, entitiesInBox, moveEntities, removeEntities, pasteEntities, alignEntities, updateEntities, entityObjectFrame, entitySuggestions, entityClamp,
   // objects (appliances, furniture)
   objectCatalog, objectDefs, objectFootprint, objectHost, objectHostAt, objectClamp, addObject, moveObject, updateObject, removeObject, validateObjects, fillObjectDefaults, objectClearance, objectSnap, addObjectType, updateObjectType, removeObjectType,
+  // rectilinear room shapes (outline)
+  outlineFromRect, outlineBounds, outlineArea, outlineNormalize, outlineIssues, outlinePoint, outlineGrid, outlineHasRect, outlineOverlapArea, outlineCombine, outlineWalls, outlineWallAt, outlineLabelRect, outlineNearest, outlineMoveWall, outlineBump, outlineThin,
+  // shape editing (Shape tool)
+  shapeOfRoom, shapeWallPartner, shapeWallPartners, reshapeRoom, reshapeWithPartner, moveRoomWall, pullRoomWall, mergeRooms,
+  // shaped areas
+  areaOutlineOf, reshapeArea, moveAreaWall, pullAreaWall, mergeAreas,
+  // dimensions and areas
+  roomAreas, wallLabels,
+  // heights (height from floor, wall heights)
+  roomElevation, wallHeightOf, setRoomHeights, heightIssues,
+  // touch gestures
+  viewGesture,
+  // link two existing openings
+  linkConnectors, addPartner,
+  // wall heights per wall (Walls mode)
+  wallList, setWallHeights, sharedWallIssues,
   // site origin, floors, stairs
   shiftOrigin,
   floorsSplit, floorsMerge, floorsSwitch, floorsAdd, floorsRemove, floorsRename, floorsGhost, floorsFill,

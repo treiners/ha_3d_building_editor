@@ -66,6 +66,16 @@ describe('validateAreas', () => {
     assert.deepEqual(codes(addArea({ graph: base(room('a', 0, 0)), kind: 'pond', layout: { x: 3.9, y: 2.9, width: 1, height: 1 } }).graph), []);
     assert.deepEqual(codes(addArea({ graph: base(room('a', 0, 0)), kind: 'pond', layout: { x: 3.5, y: 2.5, width: 1, height: 1 } }).graph), ['pond:overlaps-room']);
   });
+  it('tree: the canopy may overhang room a (0..4 x 0..3) when the trunk (centre) is outside: canopy x 3..6, centre (4.5, 2) -> no warning; canopy x 1..4, centre (2.5, 1.5) inside the room -> overlaps-room', () => {
+    assert.deepEqual(codes(addArea({ graph: base(room('a', 0, 0)), kind: 'tree', layout: { x: 3, y: 0.5, width: 3, height: 3 } }).graph), []);
+    assert.deepEqual(codes(addArea({ graph: base(room('a', 0, 0)), kind: 'tree', layout: { x: 1, y: 0, width: 3, height: 3 } }).graph), ['tree:overlaps-room']);
+  });
+  it('shaped room: an L room 7x3 with the notch x 4..7, y 2..3: a deck at 4.2,2.2 (2.5x0.6) lies in the notch -> no warning; a deck at 3,2.2 (2x0.6) reaches x 3..4 inside the arm -> overlaps-room', () => {
+    const L = { rooms: [{ id: 'a', name: 'A', layout: { x: 0, y: 0, width: 7, height: 3 }, outline: [[0, 0], [7, 0], [7, 2], [4, 2], [4, 3], [0, 3]], connectors: [] }], areas: [] as unknown[] };
+    const deck = (x: number, w: number) => ({ ...L, areas: [{ id: 'd', kind: 'deck', name: 'D', layout: { x, y: 2.2, width: w, height: 0.6 } }] });
+    assert.deepEqual(codes(deck(4.2, 2.5)), []);
+    assert.deepEqual(codes(deck(3, 2)), ['d:overlaps-room']);
+  });
   it('unknown kind, too small and duplicate id are reported; the Outside room is ignored', () => {
     const g = base(room('a', 0, 0), { ...room('o', 0, 0), name: 'Outside' }); g.areas = [{ id: 'x', kind: 'ufo', layout: { x: 9, y: 9, width: 2, height: 2 } }, { id: 'y', kind: 'deck', layout: { x: 9, y: 9, width: 0.2, height: 2 } }, { id: 'd', kind: 'deck', layout: { x: 20, y: 0, width: 2, height: 2 } }, { id: 'd', kind: 'deck', layout: { x: 30, y: 0, width: 2, height: 2 } }];
     assert.deepEqual(codes(g), ['d:duplicate-id', 'x:unknown-kind', 'y:too-small']);
@@ -78,8 +88,8 @@ describe('fillAreaDefaults / catalogue / embedding', () => {
     const f = fillAreaDefaults({ ...g, areas: [{ id: 'p', kind: 'pond', layout: { x: 1.123456, y: 2, width: 3, height: 1.5 } }] });
     assert.deepEqual(f.areas[0], { id: 'p', kind: 'pond', name: 'Pond', shape: 'ellipse', roofed: false, layout: { x: 1.1235, y: 2, width: 3, height: 1.5 } });
   });
-  it('catalogue: six kinds, only garden is a plot, pond is an ellipse', () => {
-    const K = areaKinds(); assert.deepEqual(Object.keys(K), ['deck', 'driveway', 'garden', 'pond', 'path', 'other']); assert.deepEqual([K.garden.plot, K.pond.shape, K.deck.plot], [true, 'ellipse', undefined]);
+  it('catalogue: seven kinds, only garden is a plot, pond and tree are ellipses', () => {
+    const K = areaKinds(); assert.deepEqual(Object.keys(K), ['deck', 'driveway', 'garden', 'pond', 'tree', 'path', 'other']); assert.deepEqual([K.garden.plot, K.pond.shape, K.tree.shape, K.deck.plot], [true, 'ellipse', 'ellipse', undefined]);
   });
   it('embedded source gives the same results as Node', () => {
     const fns = [areaKinds, addArea, updateArea, removeArea, areaAt, validateAreas, fillAreaDefaults];

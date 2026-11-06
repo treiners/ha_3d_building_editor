@@ -4,6 +4,9 @@ import { checkContract } from '../src/contract.js';
 import { deriveJoints } from '../src/joints.js';
 import { validateEntities, entityCatalog } from '../src/entities.js';
 import { validateAreas, areaKinds } from '../src/areas.js';
+import { heightIssues, wallHeightOf } from '../src/heights.js';
+import { wallList, sharedWallIssues } from '../src/wallheights.js';
+import * as shapeFns from '../src/shape.js';
 import { validateObjects, objectDefs, objectCatalog, objectHost, objectFootprint } from '../src/objects.js';
 import { stairsHost, stairBar, stairRect } from '../src/stairs.js';
 
@@ -41,7 +44,7 @@ describe('contract check of a saved graph', () => {
     assert.deepEqual(r.warnings.filter(w => w.code.startsWith('area-')).length, validateAreas(g).length);
   });
   it('embedded source evaluates and matches Node (siblings deriveJoints / validateEntities / validateAreas / validateObjects and their helpers entityCatalog / areaKinds / objectDefs / objectCatalog / objectHost / objectFootprint)', () => {
-    const E: any = new Function(deriveJoints.toString() + '\n' + stairRect.toString() + '\n' + stairBar.toString() + '\n' + stairsHost.toString() + '\n' + entityCatalog.toString() + '\n' + areaKinds.toString() + '\n' + validateEntities.toString() + '\n' + validateAreas.toString() + '\n' + objectCatalog.toString() + '\n' + objectDefs.toString() + '\n' + objectFootprint.toString() + '\n' + objectHost.toString() + '\n' + validateObjects.toString() + '\n' + checkContract.toString() + '\nreturn checkContract;')();
+    const E: any = new Function(deriveJoints.toString() + '\n' + stairRect.toString() + '\n' + stairBar.toString() + '\n' + stairsHost.toString() + '\n' + entityCatalog.toString() + '\n' + areaKinds.toString() + '\n' + validateEntities.toString() + '\n' + validateAreas.toString() + '\n' + wallHeightOf.toString() + '\n' + heightIssues.toString() + '\n' + wallList.toString() + '\n' + sharedWallIssues.toString() + '\n' + Object.values(shapeFns).filter((f) => typeof f === 'function').map((f) => f.toString()).join('\n') + '\n' + objectCatalog.toString() + '\n' + objectDefs.toString() + '\n' + objectFootprint.toString() + '\n' + objectHost.toString() + '\n' + validateObjects.toString() + '\n' + checkContract.toString() + '\nreturn checkContract;')();
     assert.deepEqual(E(base()), checkContract(base()));
   });
 });

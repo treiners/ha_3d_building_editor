@@ -22,11 +22,11 @@ describe('fillDefaults (what Save graph writes)', () => {
     const E = fillDefaults(G(port('ar', 'a', 'right'), port('bl', 'b', 'left', { door: { hinge: 'right', swing: 'inward', openAngle: 70 } })));
     assert.deepEqual(E.rooms[0].connectors[0].door, { hinge: 'left', swing: 'outward', openAngle: 70 }); assert.deepEqual(E.rooms[1].connectors[0].door, { hinge: 'right', swing: 'inward', openAngle: 70 });
   });
-  it('passage 1.2 m without door spec, sliding door 0.9 m without swing, explicit width kept, window gets 0.8 / 2.1 / 0.08 / fixed and width 1.2', () => {
+  it('passage 1.2 m without door spec, sliding door 0.9 m with door.slide start only (no hinge / swing), explicit width kept, window gets 0.8 / 2.1 / 0.08 / fixed and width 1.2', () => {
     const pass = fillDefaults(G(port('ar', 'a', 'right', { type: 'open-passage' }), port('bl', 'b', 'left', { type: 'open-passage', width: 2 })));
     assert.deepEqual([pass.rooms[0].connectors[0].width, pass.rooms[1].connectors[0].width], [1.2, 2]); assert.ok(!('door' in pass.rooms[0].connectors[0]));
     const sl = fillDefaults(G(port('ar', 'a', 'right', { doorType: 'sliding' }), port('bl', 'b', 'left', { doorType: 'sliding' })));
-    assert.equal(sl.rooms[0].connectors[0].width, 0.9); assert.ok(!('door' in sl.rooms[0].connectors[0]));
+    assert.equal(sl.rooms[0].connectors[0].width, 0.9); assert.deepEqual(sl.rooms[0].connectors[0].door, { slide: 'start' });
     const w = fillDefaults({ rooms: [{ id: 'a', name: 'A', connectors: [port('aw', 'a', 'top', { type: 'window', window: { sillHeight: 1 } })] }], relationships: [] }).rooms[0].connectors[0];
     assert.deepEqual(w.window, { type: 'fixed', sillHeight: 1, headHeight: 2.1, frameDepth: 0.08 }); assert.equal(w.width, 1.2);
   });

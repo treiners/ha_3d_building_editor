@@ -3,8 +3,11 @@
  *
  * A relationship "A.right <-> B.left" says that two walls are one wall. A joint describes the current state of that
  * wall: is it really shared (touching, connector points together) and how far may a room still slide
- * along it. Pure + deterministic, no imports, one self-contained function => embeddable into the editor HTML
+ * along it. Pure + deterministic, one self-contained function (siblings: outlineIssues, outlineWallAt, used only for rooms with an `outline`) => embeddable into the editor HTML
  * (same mechanism as mapLayout) and fully testable in Node.
+ *
+ * Room shapes (v2.18 phase 4): a connector sits on a wall SEGMENT, not necessarily on the bounding box. For a room with an `outline` the wall is the segment facing the connector's side
+ * at its offset (offset measured from the bounding box edge, see shape.ts `outlineWallAt`); gap, shared interval, slide range and the opening use that segment.
  *
  * Status mirrors the editor's own rule (core.aligned): walls touch (<= 0.08 m) with a positive shared part AND the two
  * connector points are within 0.2 m. How wide the shared part is, is reported separately (`narrow`) and never changes status.
@@ -12,11 +15,13 @@
  * Coordinates: metres, x right, y down. `shift` values are for room B along the tangent axis (positive = +axis);
  * shifting room A by -s is equivalent.
  */
+import { outlineIssues, outlineWallAt } from './shape.js';
+
 export type JointState = 'attached' | 'detached';
 export interface JointOverride { relationshipId: string; state: JointState }
 export type JointStatus = 'ok' | 'broken' | 'detached' | 'invalid' | 'unplaced';
-export interface JPort { id: string; roomId: string; side: 'top' | 'right' | 'bottom' | 'left'; type: string; position?: number; offset?: number; width?: number; doorType?: string }
-export interface JRoom { id: string; sizeCategory?: 'small' | 'medium' | 'large'; connectors: JPort[]; layout?: { x: number; y: number; width: number; height: number; locked?: boolean; positionLocked?: boolean; sizeLocked?: boolean } }
+export interface JPort { id: string; roomId: string; side: 'top' | 'right' | 'bottom' | 'left'; type: string; position?: number; offset?: number; width?: number; doorType?: string; wallAt?: number }
+export interface JRoom { id: string; sizeCategory?: 'small' | 'medium' | 'large'; connectors: JPort[]; outline?: [number, number][]; layout?: { x: number; y: number; width: number; height: number; locked?: boolean; positionLocked?: boolean; sizeLocked?: boolean } }
 export interface JLink { id: string; connectorA: string; connectorB: string; importance?: string }
 export interface SlideRange { min: number; max: number; fixedOpening: { min: number; max: number } | null }
 export interface Joint {
@@ -71,26 +76,31 @@ export function deriveJoints(
     if (!ca || !cb) { add('invalid', ['unknown-connector']); continue; }
     if (ca.roomId === cb.roomId) { add('invalid', ['same-room']); continue; }
     if (OPP[ca.side] !== cb.side) { add('invalid', ['non-opposing-sides']); continue; }
-    const A = rooms.get(ca.roomId)?.layout, B = rooms.get(cb.roomId)?.layout;
+    const RA = rooms.get(ca.roomId), RB = rooms.get(cb.roomId), A = RA?.layout, B = RB?.layout;
     if (!A || !B) { add('unplaced', ['missing-layout']); continue; }
 
     const sa = ca.side, horizontalWall = sa === 'top' || sa === 'bottom';
     // normal gap and tangent intervals of the two walls
-    const gap = sa === 'right' ? B.x - (A.x + A.width) : sa === 'left' ? A.x - (B.x + B.width) : sa === 'bottom' ? B.y - (A.y + A.height) : A.y - (B.y + B.height);
-    const a0 = horizontalWall ? A.x : A.y, a1 = a0 + (horizontalWall ? A.width : A.height);
-    const b0 = horizontalWall ? B.x : B.y, b1 = b0 + (horizontalWall ? B.width : B.height);
-    const lo = Math.max(a0, b0), hi = Math.min(a1, b1);
-    const overlap: [number, number] | null = hi > lo ? [rnd(lo), rnd(hi)] : null;
-    const cw = (p: JPort) => (typeof p.width === 'number' && p.width > 0 ? p.width : OPEN[p.type] ?? 0.9), w = Math.max(cw(ca), cw(cb)), need = w + MARGIN;
     // connector position along its wall, clamped like the editor's norm()
     const hint = (p: JPort, len: number) => {
       const v = typeof p.offset === 'number' && Number.isFinite(p.offset) ? p.offset : (typeof p.position === 'number' ? p.position : 0.5) * len;
       return Math.max(0.05, Math.min(len - 0.05, v));
     };
-    const pa = a0 + hint(ca, a1 - a0), pb = b0 + hint(cb, b1 - b0);
+    // the wall a connector sits on, in world coordinates: normal coordinate n and tangent extent t0..t1 (the side of the bounding box, or the wall segment of the room's own shape at the connector's offset)
+    const wall = (r: JRoom | undefined, L: NonNullable<JRoom['layout']>, p: JPort) => {
+      const h = p.side === 'top' || p.side === 'bottom', len = h ? L.width : L.height, ol = r && r.outline && outlineIssues(r.outline).length === 0 ? r.outline : null, w = ol ? outlineWallAt(ol, p.side, hint(p, len), p.wallAt) : undefined;
+      const at = w ? w.at : p.side === 'top' || p.side === 'left' ? 0 : h ? L.height : L.width, f = w ? w.from : 0, t = w ? w.to : len;
+      return h ? { n: L.y + at, t0: L.x + f, t1: L.x + t, start: L.x, len } : { n: L.x + at, t0: L.y + f, t1: L.y + t, start: L.y, len };
+    };
+    const WA = wall(RA, A, ca), WB = wall(RB, B, cb);
+    const gap = sa === 'right' || sa === 'bottom' ? WB.n - WA.n : WA.n - WB.n;
+    const a0 = WA.t0, a1 = WA.t1, b0 = WB.t0, b1 = WB.t1;
+    const lo = Math.max(a0, b0), hi = Math.min(a1, b1);
+    const overlap: [number, number] | null = hi > lo ? [rnd(lo), rnd(hi)] : null;
+    const cw = (p: JPort) => (typeof p.width === 'number' && p.width > 0 ? p.width : OPEN[p.type] ?? 0.9), w = Math.max(cw(ca), cw(cb)), need = w + MARGIN;
+    const pa = WA.start + hint(ca, WA.len), pb = WB.start + hint(cb, WB.len);
     // normal coordinate of each wall line: the editor compares the two connector POINTS (normal + tangent)
-    const na = sa === 'right' ? A.x + A.width : sa === 'left' ? A.x : sa === 'bottom' ? A.y + A.height : A.y;
-    const nb = sa === 'right' ? B.x : sa === 'left' ? B.x + B.width : sa === 'bottom' ? B.y : B.y + B.height;
+    const na = WA.n, nb = WB.n;
     const aligned = Math.hypot(na - nb, pa - pb) <= ALIGN + EPS;
     const touching = Math.abs(gap) <= TOUCH + EPS && !!overlap;
     const narrow = touching && overlap![1] - overlap![0] < need - EPS;
